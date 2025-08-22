@@ -42,22 +42,22 @@ with tab1:
 
     # print("--- Original ---")
     "Original Song:"
-
     song
+
     # print("\n--- Transposed up 2 ---")
 
-    transposed = transpose.transform_chordpro(song, transpose_steps=transpose_steps)
+    transposed = transpose.transform_chordpro(song, transpose_steps=2)
 
     nashville = transpose.transform_chordpro(song, nashville=True, key=key)
 
     "Transposed"
     transposed
-    "NAshville"
+    "Nashville"
     "\n"
     nashville
 
-    test = st.subheader(transpose.parse_chord("Am"))
+    test = st.subheader(transpose.parse_chord(song))
+    test
+    # chords = ["Am", "D"]
 
-    chords = ["Am", "D"]
-
-    test2 = st.subheader(transpose.chord_to_nashville(chords, key="G"))
+    # test2 = st.subheader(transpose.chord_to_nashville(chords, key="G"))

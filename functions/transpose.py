@@ -31,37 +31,35 @@ def transpose_note(note: str, steps: int) -> str:
 
 
 def parse_chord(chord: str):
-    """
-    Split chord into (root, quality, bass).
-    Handles:
-      - Major, minor, diminished, augmented
-      - sus chords
-      - 7ths, 9ths, add chords
-      - Slash chords (e.g., C/G)
-    """
-    # Regex explanation:
-    #   ([A-G][#b]?)  -> root note
-    #   (m|maj|dim|aug|sus[24]?|7|9|add\d+)?  -> optional quality
-    #   (?:/([A-G][#b]?))?  -> optional bass note after slash
-    m = re.fullmatch(
-        r"([A-G][#b]?)(m|maj|dim|aug|sus[24]?|7|9|add\d+)?(?:/([A-G][#b]?))?", chord
-    )
-    if not m:
+    """Parse chord using the same pattern as CHORD_RE."""
+    match = CHORD_RE.match(chord)
+    if not match:
         return chord, "", ""
-    root, qual, bass = m.groups()
-    return root, qual or "", bass or ""
+
+    root = match.group("root")
+    qual = match.group("qual") or ""
+    bass = match.group("bass") or ""
+
+    # Remove leading slash from bass if present
+    if bass and bass.startswith("/"):
+        bass = bass[1:]
+
+    return root, qual, bass
 
 
 def transpose_chord(chord: str, steps: int) -> str:
     root, qual, bass = parse_chord(chord)
-    if not root:
+    if not root or root not in NOTES_SHARP + NOTES_FLAT:
         return chord
+
     root_t = transpose_note(root, steps)
+
     if bass:
-        bass_note = bass[1:]  # strip '/'
-        bass_t = transpose_note(bass_note, steps)
-        bass = "/" + bass_t
-    return root_t + qual + bass
+        bass_t = transpose_note(bass, steps)
+        return root_t + qual + "/" + bass_t
+
+    else:
+        return root_t + qual
 
 
 # --- Nashville number system ---
@@ -88,16 +86,16 @@ NASHVILLE_NUMBERS = {
 
 def chord_to_nashville(chord: str, key: str) -> str:
     root, qual, bass = parse_chord(chord)
-    if not root:
+    if not root or root not in NOTES_SHARP + NOTES_FLAT:
         return chord
 
     # Normalize root + key
-    root = normalize_note(root)
-    key = normalize_note(key)
+    root_norm = normalize_note(root)
+    key_norm = normalize_note(key)
 
     # Get degree relative to key
-    key_idx = NOTES_SHARP.index(key)
-    root_idx = NOTES_SHARP.index(root)
+    key_idx = NOTES_SHARP.index(key_norm)
+    root_idx = NOTES_SHARP.index(root_norm)
     interval = (root_idx - key_idx) % 12
 
     # Major scale intervals
@@ -105,27 +103,15 @@ def chord_to_nashville(chord: str, key: str) -> str:
     if interval in scale:
         degree = scale.index(interval) + 1
     else:
-        degree = f"?{interval}"  # non-diatonic chord
+        degree = f"?{interval}"
 
-    # Detect chord quality
-    qual = qual or ""
-    suffix = ""
-    if qual.startswith("m") and not qual.startswith("maj"):
-        suffix = "m"  # minor
-    elif "dim" in qual:
-        suffix = "dim"
-    elif "aug" in qual:
-        suffix = "aug"
-    elif "sus" in qual:
-        suffix = "sus" + "".join(filter(str.isdigit, qual))  # sus2/sus4
-
-    out = str(degree) + suffix
+    # Preserve the original quality
+    out = str(degree) + qual
 
     # Handle bass notes
     if bass:
-        bass_note = bass[1:]
-        bass_note_norm = normalize_note(bass_note)
-        bass_idx = NOTES_SHARP.index(bass_note_norm)
+        bass_norm = normalize_note(bass)
+        bass_idx = NOTES_SHARP.index(bass_norm)
         interval_bass = (bass_idx - key_idx) % 12
         if interval_bass in scale:
             degree_bass = scale.index(interval_bass) + 1
@@ -139,7 +125,7 @@ def chord_to_nashville(chord: str, key: str) -> str:
 # --- Apply transformation to entire song ---
 def transform_chordpro(text: str, transpose_steps=0, nashville=False, key=""):
     def repl(m):
-        chord = m.group(1)
+        chord = m.group(0)
         out = chord
         if transpose_steps != 0:
             out = transpose_chord(out, transpose_steps)
