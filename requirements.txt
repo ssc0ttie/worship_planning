@@ -1,0 +1,11 @@
+streamlit
+reportlab
+io
+tempfile
+re
+supabase
+dotenv
+os
+
+# ZoneInfo
+# zoneinfo
