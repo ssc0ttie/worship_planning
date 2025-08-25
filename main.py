@@ -1,69 +1,30 @@
 import streamlit as st
+from supabase import create_client, Client
 
 # from dotenv import load_dotenv
 import os
+import re
+import json
 
-
-# load_dotenv()
-
-# url = os.getenv("SUPABASE_URL")
-# key = os.getenv("SUPABASE_KEY")
-
-# supabase: Client = create_client(url, key)
 
 st.title("Atril")
 
 ######################TABS########################
-tab0, tab1, tab2 = st.tabs(["Library", "Setlists", "Rehersal View"])
+# tab0, tab1, tab2 = st.tabs(["Library", "Setlists", "Rehersal View"])
 
 
 #### Library Tab #####
 from functions import to_chordpro
 from functions import transpose
 from functions import export_to_pdf
+from functions import song_manager
 
-# with tab0:
+# st.title("Song Transposer")
 
-#     st.subheader("Library")
-
-#     with st.expander("Upload a Song"):
-#         "test"
-#         song = st.text_area("Paste Song Here")
-#         converte_song = to_chordpro.ug_to_chordpro(song)
-#         st.code(converte_song, language="")
-
-
-# with tab1:
-#     st.subheader("Transpose Song")
-
-#     col1, col2 = st.columns(2)
-#     with col1:
-#         song_title = st.text_input("Enter Song Title")
-#         artist = st.text_input("Enter Artist")
-#         transpose_steps = int(st.number_input("Transpose Step:"))
-#         key = st.text_input("Enter Song Key")
-
-#     with col2:
-#         song = st.text_area("Paste Song Here", height=400)
-
-#     ########## Perform Transpose and Nashville ###############
-#     transposed = transpose.transform_chordpro(song, transpose_steps=2)
-#     nashville = transpose.transform_chordpro(song, nashville=True, key=key)
-
-#     # Export to PDF
-#     export_to_pdf.export_to_pdf_compact(
-#         transposed, filename=song_title + "_transposed.pdf", title=song_title
-#     )
-#     export_to_pdf.export_to_pdf_compact(
-#         nashville, filename=song_title + "_nashville.pdf", title=song_title
-#     )
-
-
-st.title("Song Transposer")
 
 with st.sidebar:
     st.header("Navigation")
-    tab = st.radio("Go to:", ["Transpose Song", "Settings", "Help"])
+    tab = st.radio("Go to:", ["Transpose Song", "Settings", "Help", "Manage Songs"])
 
 if tab == "Transpose Song":
     col1, col2 = st.columns(2)
@@ -81,7 +42,7 @@ if tab == "Transpose Song":
         song = st.text_area(
             "Paste Song Here*",
             height=400,
-            placeholder="[C]Amazing [G]grace, how [C]sweet the [F]sound...",
+            placeholder="""[C]Amazing [G]grace, how [C]sweet the [F]sound...""",
         )
 
     # Add a transpose button
@@ -130,18 +91,6 @@ if tab == "Transpose Song":
                     st.session_state.nashville_pdf = nashville_pdf
                     st.session_state.transpose_success = True
 
-                    # # Export to PDF
-                    # export_to_pdf.export_to_pdf_compact_2(
-                    #     transposed,
-                    #     filename=f"{song_title}_transposed.pdf",
-                    #     title=f"{song_title} (Transposed +{transpose_steps} steps)",
-                    # )
-                    # export_to_pdf.export_to_pdf_compact_2(
-                    #     nashville,
-                    #     filename=f"{song_title}_nashville.pdf",
-                    #     title=f"{song_title} (Nashville - Key {key})",
-                    # )
-
                     st.success("✅ Song transposed successfully! PDFs generated.")
 
             except Exception as e:
@@ -160,14 +109,6 @@ if tab == "Transpose Song":
             st.write(f"**Transposed by {transpose_steps} steps:**")
             st.code(st.session_state.transposed_song, language=None)
 
-            # Download button for transposed version
-            # st.download_button(
-            #     label="📥 Download Transposed PDF",
-            #     data=open(f"{song_title}_transposed.pdf", "rb").read(),
-            #     file_name=f"{song_title}_transposed.pdf",
-            #     mime="application/pdf",
-            #     use_container_width=True,
-            # )
             if st.session_state.transposed_pdf:
                 st.download_button(
                     label="📥 Download Transposed PDF",
@@ -181,14 +122,6 @@ if tab == "Transpose Song":
             st.write(f"**Nashville numbers (Key: {key}):**")
             st.code(st.session_state.nashville_song, language=None)
 
-            # Download button for Nashville version
-            # st.download_button(
-            #     label="📥 Download Nashville PDF",
-            #     data=open(f"{song_title}_nashville.pdf", "rb").read(),
-            #     file_name=f"{song_title}_nashville.pdf",
-            #     mime="application/pdf",
-            #     use_container_width=True,
-            # )
             if st.session_state.nashville_pdf:
                 st.download_button(
                     label="📥 Download Nashville PDF",
@@ -236,3 +169,62 @@ elif tab == "Help":
     ```
     """
     )
+
+
+elif tab == "Manage Songs":
+    st.header("Manage Songs in Database")
+
+    songs = song_manager.get_songs()
+    if songs:
+        for song in songs:
+            with st.expander(f"{song['title']} by {song['artist']}"):
+                col1, col2 = st.columns([3, 1])
+
+                with col1:
+                    st.write(f"**ID:** {song['id']}")
+                    st.write(
+                        f"**Default Key:** {song.get('default_key', 'Not specified')}"
+                    )
+
+                with col2:
+                    if st.button("Edit", key=f"edit_{song['id']}"):
+                        st.session_state.edit_mode = True
+                        st.session_state.editing_song = song
+
+                    if st.button("Delete", key=f"delete_{song['id']}"):
+                        # In a real app, you'd add a confirmation and delete function
+                        st.warning("Delete functionality would be implemented here")
+
+                # Edit form (if in edit mode for this song)
+                if (
+                    st.session_state.get("edit_mode")
+                    and st.session_state.get("editing_song", {}).get("id") == song["id"]
+                ):
+                    with st.form(key=f"edit_form_{song['id']}"):
+                        new_title = st.text_input("Title", value=song["title"])
+                        new_artist = st.text_input("Artist", value=song["artist"])
+                        new_key = st.text_input(
+                            "Default Key", value=song.get("default_key", "")
+                        )
+                        new_arrangement = st.text_area(
+                            "Lyrics", value=song["arrangement"], height=200
+                        )
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.form_submit_button("Save Changes"):
+                                song_manager.update_song(
+                                    song["id"],
+                                    new_title,
+                                    new_artist,
+                                    new_arrangement,
+                                    new_key,
+                                )
+                                st.session_state.edit_mode = False
+                                st.rerun()
+                        with col2:
+                            if st.form_submit_button("Cancel"):
+                                st.session_state.edit_mode = False
+                                st.rerun()
+    else:
+        st.info("No songs found in the database.")

@@ -1,5 +1,6 @@
 streamlit
 reportlab
+pandas
 # io
 # tempfile
 # re
