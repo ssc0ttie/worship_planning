@@ -1,6 +1,6 @@
 streamlit
 reportlab
-io
+# io
 tempfile
 re
 supabase
