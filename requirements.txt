@@ -1,11 +1,11 @@
 streamlit
 reportlab
 # io
-tempfile
-re
+# tempfile
+# re
 supabase
 dotenv
-os
+# os
 
 # ZoneInfo
 # zoneinfo
