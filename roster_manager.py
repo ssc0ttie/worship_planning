@@ -10,13 +10,19 @@ import random
 import time
 from io import BytesIO
 
-# Set page configuration
-st.set_page_config(
-    page_title="Worship Team Roster",
-    page_icon="🎵",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+
+from supabase_client import supabase
+
+
+# --- Database functions ---
+def get_roster():
+    try:
+        response = supabase.table("song").select("*").execute()
+        return response.data
+    except Exception as e:
+        st.error(f"Error fetching songs: {e}")
+        return []
+
 
 # Initialize session state for data persistence
 if "users" not in st.session_state:
@@ -27,6 +33,7 @@ if "availability" not in st.session_state:
     st.session_state.availability = {}
 if "assignments" not in st.session_state:
     st.session_state.assignments = {}
+
 
 # Sample data for demonstration
 if not st.session_state.users:

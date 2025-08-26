@@ -6,6 +6,14 @@ import os
 import re
 import json
 
+### page config ####
+st.set_page_config(
+    page_title="Worship Team Manager",
+    page_icon="🎵",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 
 st.title("Atril")
 
@@ -24,7 +32,10 @@ from functions import song_manager
 
 with st.sidebar:
     st.header("Navigation")
-    tab = st.radio("Go to:", ["Transpose Song", "Settings", "Help", "Manage Songs"])
+    tab = st.radio(
+        "Go to:",
+        ["Manage Roster", "Transpose Song", "Settings", "Help", "Manage Songs"],
+    )
 
 if tab == "Transpose Song":
     col1, col2 = st.columns(2)
@@ -195,6 +206,11 @@ elif tab == "Manage Songs":
                         # In a real app, you'd add a confirmation and delete function
                         st.warning("Delete functionality would be implemented here")
 
+                    if st.button("View Song", key=f"view_{song['id']}"):
+                        st.session_state.view_mode = True
+                        st.session_state.edit_mode = False
+                        st.session_state.viewing_song = song
+
                 # Edit form (if in edit mode for this song)
                 if (
                     st.session_state.get("edit_mode")
@@ -226,5 +242,39 @@ elif tab == "Manage Songs":
                             if st.form_submit_button("Cancel"):
                                 st.session_state.edit_mode = False
                                 st.rerun()
+
+                # --- View mode ---
+                if (
+                    st.session_state.get("view_mode")
+                    and st.session_state.get("viewing_song", {}).get("id") == song["id"]
+                ):
+                    st.subheader(f"{song['title']} - {song['artist']}")
+                    st.markdown(f"**Key:** {song.get('default_key', '')}")
+                    st.text_area(
+                        "Lyrics (read-only)",
+                        value=song["arrangement"],
+                        height=300,
+                        disabled=True,
+                    )
+
+                    if st.button("Close View", key=f"close_view_{song['id']}"):
+                        st.session_state.view_mode = False
+                        st.rerun()
+
     else:
         st.info("No songs found in the database.")
+
+
+elif tab == "Manage Roster":
+
+    roster_mode = st.tabs(
+        [
+            "Dashboard",
+            "Submit Availability",
+            "Manage Schedule",
+            "View Roster",
+            "Admin Settings",
+        ],
+    )
+
+    # if roster_mode == ""
