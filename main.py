@@ -6,6 +6,16 @@ import os
 import re
 import json
 
+import pandas as pd
+import datetime
+from datetime import timedelta
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import random
+import time
+from io import BytesIO
+
 ### page config ####
 st.set_page_config(
     page_title="Worship Team Manager",
@@ -34,10 +44,16 @@ with st.sidebar:
     st.header("Navigation")
     tab = st.radio(
         "Go to:",
-        ["Manage Roster", "Transpose Song", "Settings", "Help", "Manage Songs"],
+        [
+            "Manage Roster",
+            "Settings  *place holder",
+            "Help *place holder",
+            "Manage Songs",
+            "Adhoc : Transpose Song",
+        ],
     )
 
-if tab == "Transpose Song":
+if tab == "Adhoc : Transpose Song":
     col1, col2 = st.columns(2)
     with col1:
         song_title = st.text_input(
@@ -266,15 +282,571 @@ elif tab == "Manage Songs":
 
 
 elif tab == "Manage Roster":
+    from functions import roster_manager
 
-    roster_mode = st.tabs(
+    st.header("Manage Roster")
+
+    users = roster_manager.get_users()
+    services = roster_manager.get_services()
+    availability = roster_manager.get_availability()
+    assignments = roster_manager.get_assignments()
+    roles = roster_manager.get_roles()
+    # update_availability = roster_manager.update_availability()
+    # add_availability = roster_manager.add_availability()
+
+    # Initialize session state for UI elements only
+    if "editing_user" not in st.session_state:
+        st.session_state.editing_user = None
+    if "edit_mode" not in st.session_state:
+        st.session_state.edit_mode = False
+    if "new_song_mode" not in st.session_state:
+        st.session_state.new_song_mode = False
+
+    ###################### STREAMLIT ###################
+    # App title and description
+    st.title("🎵 Worship Team Roster Manager")
+    st.markdown(
+        """
+    Streamline your worship team scheduling process. 
+    Team members can submit availability, and leaders can create optimized rosters.
+    """
+    )
+
+    # Tabs for navigation
+    # st.title("Navigation")
+
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
         [
             "Dashboard",
             "Submit Availability",
             "Manage Schedule",
             "View Roster",
             "Admin Settings",
-        ],
+        ]
     )
 
-    # if roster_mode == ""
+    # app_mode = tab1, tab2, tab3, tab4, tab5
+
+    # Dashboard
+    with tab1:  ##APP MODE "Dashboard"##
+        st.header("Dashboard")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric(
+                "Team Members",
+                len([u for u in users if u["role"] in ["Member", "Leader"]]),
+            )
+
+        with col2:
+            # Count upcoming services in next 30 days
+            upcoming_services = [
+                s
+                for s in services
+                if datetime.datetime.strptime(s["service_date"], "%Y-%m-%d").date()
+                >= datetime.date.today()
+                and datetime.datetime.strptime(s["service_date"], "%Y-%m-%d").date()
+                <= datetime.date.today() + timedelta(days=30)
+            ]
+
+            st.metric("Upcoming Services", len(upcoming_services))
+
+        with col3:
+            # Calculate response rate for next service
+            if services and availability:
+                # Convert string dates to date objects for comparison
+                services_with_dates = []
+                for s in services:
+                    s_copy = s.copy()
+                    s_copy["service_date"] = datetime.datetime.strptime(
+                        s["service_date"], "%Y-%m-%d"
+                    ).date()
+                    services_with_dates.append(s_copy)
+
+                next_service = min(
+                    [
+                        s
+                        for s in services_with_dates
+                        if s["service_date"] >= datetime.date.today()
+                    ],
+                    key=lambda x: x["service_date"],
+                    default=None,
+                )
+                if next_service:
+                    responded = len(
+                        [
+                            a
+                            for a in availability
+                            if a["service_id"] == next_service["id"]
+                        ]
+                    )
+                    total_members = len([u for u in users if u["role"] == "Member"])
+                    response_rate = (
+                        (responded / total_members) * 100 if total_members > 0 else 0
+                    )
+                    st.metric("Response Rate", f"{response_rate:.1f}%")
+
+        st.subheader("Recent Activity")
+
+        # Placeholder for activity feed
+        st.info("Activity feed will show recent submissions and changes here.")
+
+        st.subheader("Upcoming Services")
+
+        # Display next 4 services
+        if services:
+            # Convert string dates to date objects for sorting
+            services_with_dates = []
+            for s in services:
+                s_copy = s.copy()
+                s_copy["service_date"] = datetime.datetime.strptime(
+                    s["service_date"], "%Y-%m-%d"
+                ).date()
+                services_with_dates.append(s_copy)
+
+            upcoming = sorted(
+                [
+                    s
+                    for s in services_with_dates
+                    if s["service_date"] >= datetime.date.today()
+                ],
+                key=lambda x: x["service_date"],
+            )[:4]
+
+            for service in upcoming:
+                with st.expander(
+                    f"{service['service_date']} - {service['service_name']}"
+                ):
+                    # Check if roster is created
+                    service_assignments = [
+                        a for a in assignments if a["service_id"] == service["id"]
+                    ]
+                    if service_assignments:
+                        st.success("Roster created")
+                        for assignment in service_assignments:
+                            member = next(
+                                (u for u in users if u["id"] == assignment["user_id"]),
+                                None,
+                            )
+                            if member:
+                                st.write(
+                                    f"• {member['name']} - {', '.join(assignment['roles'])}"
+                                )
+                    else:
+                        st.warning("Roster not yet created")
+
+                    # Show response count
+                    responses = len(
+                        [a for a in availability if a["service_id"] == service["id"]]
+                    )
+                    total_members = len([u for u in users if u["role"] == "Member"])
+                    st.write(f"Availability responses: {responses}/{total_members}")
+        else:
+            st.info("No upcoming services scheduled. Add services in Admin Settings.")
+
+    # Submit Availability
+    with tab2:  ## APP MODE "Submit Availability":
+        st.header("Submit Your Availability")
+
+        # User selection (in real app, this would be based on login)
+        user_options = {
+            f"{u['name']} ({u['email']})": u
+            for u in users
+            if u["role"] in ["Member", "Leader"]
+        }
+
+        # Build a mapping: user_id -> [list of roles]
+        user_roles_map = {}
+        for r in roles:
+            user_roles_map.setdefault(r["user_id"], []).append(r["instrument"])
+
+        if not user_options:
+            st.warning("No team members found. Please add members in Admin Settings.")
+        else:
+            selected_user = st.selectbox(
+                "Select your name", options=list(user_options.keys())
+            )
+            user = user_options[selected_user]
+
+            st.subheader(f"Availability for {user['name']}")
+
+            # Display upcoming services
+            if services:
+                # Convert string dates to date objects for sorting
+                services_with_dates = []
+                for s in services:
+                    s_copy = s.copy()
+                    s_copy["service_date"] = datetime.datetime.strptime(
+                        s["service_date"], "%Y-%m-%d"
+                    ).date()
+                    services_with_dates.append(s_copy)
+
+                upcoming_services = sorted(
+                    [
+                        s
+                        for s in services_with_dates
+                        if s["service_date"] >= datetime.date.today()
+                    ],
+                    key=lambda x: x["service_date"],
+                )
+
+                for service in upcoming_services:
+                    # Check if already submitted
+                    existing_response = next(
+                        (
+                            a
+                            for a in availability
+                            if a["service_id"] == service["id"]
+                            and a["user_id"] == user["id"]
+                        ),
+                        None,
+                    )
+
+                    with st.expander(
+                        f"{service['service_date']} - {service['service_name']}"
+                    ):
+                        if existing_response:
+                            st.success(
+                                f"You've already submitted: {existing_response['availability_status']}"
+                            )
+                            if st.button(
+                                f"Change Response for {service['service_date']}",
+                                key=f"change_{service['id']}",
+                            ):
+                                # In a real app, you would update the availability in Supabase
+                                if roster_manager.update_availability(
+                                    existing_response["id"], "Not Available", []
+                                ):
+                                    st.success("Response updated!")
+                                    st.rerun()
+                        else:
+                            availability_status = st.radio(
+                                "Are you available?",
+                                ["Available", "Not Available", "If needed"],
+                                key=f"avail_{service['id']}",
+                            )
+
+                            if availability_status == "Available":
+                                available_roles = user_roles_map.get(user["id"], [])
+                                instruments = st.multiselect(
+                                    "Which instruments/roles?",
+                                    options=available_roles,
+                                    default=available_roles,  # default selects all their roles
+                                    key=f"instr_{service['id']}",
+                                )
+
+                            else:
+                                instruments = []
+
+                            if st.button("Submit", key=f"submit_{service['id']}"):
+                                # Save availability to Supabase
+                                if roster_manager.add_availability(
+                                    user["id"],
+                                    service["id"],
+                                    availability_status,
+                                    instruments,
+                                ):
+                                    st.success("Availability submitted!")
+                                    time.sleep(1)
+                                    st.rerun()
+            else:
+                st.info("No upcoming services to respond to.")
+    # Manage Schedule (Leaders only)
+    with tab3:  # APP MODE "Manage Schedule":
+        st.header("Manage Service Schedule")
+
+        # Check if user is a leader (simplified for demo)
+        leaders = [u for u in users if u["role"] == "Leader"]
+        if not leaders:
+            st.warning("No leaders defined. Please add leaders in Admin Settings.")
+        else:
+            # Add new service form
+            with st.form("add_service_form"):
+                st.subheader("Add New Service")
+                col1, col2 = st.columns(2)
+                with col1:
+                    service_name = st.text_input("Service Name", "Sunday Service")
+                with col2:
+                    service_date = st.date_input(
+                        "Service Date", min_value=datetime.date.today()
+                    )
+
+                if st.form_submit_button("Add Service"):
+                    if roster_manager.add_service(
+                        service_name, service_date.isoformat()
+                    ):
+                        st.success(f"Added service: {service_name} on {service_date}")
+                        st.rerun()
+
+            st.subheader("Upcoming Services")
+
+            # Refresh services data
+            services = roster_manager.get_services()
+
+            if services:
+                # Convert string dates to date objects for sorting
+                services_with_dates = []
+                for s in services:
+                    s_copy = s.copy()
+                    s_copy["service_date"] = datetime.datetime.strptime(
+                        s["service_date"], "%Y-%m-%d"
+                    ).date()
+                    services_with_dates.append(s_copy)
+
+                upcoming_services = sorted(
+                    [
+                        s
+                        for s in services_with_dates
+                        if s["service_date"] >= datetime.date.today()
+                    ],
+                    key=lambda x: x["service_date"],
+                )
+
+                for service in upcoming_services:
+                    with st.expander(
+                        f"{service['service_date']} - {service['service_name']} (ID: {service['id']})"
+                    ):
+                        # Show availability responses
+                        responses = [
+                            a for a in availability if a["service_id"] == service["id"]
+                        ]
+
+                        st.write(
+                            f"**Responses: {len(responses)}/{len([u for u in users if u['role'] == 'Member'])}**"
+                        )
+
+                        available_members = []
+                        not_available_members = []
+                        if_needed_members = []
+
+                        for response in responses:
+                            member = next(
+                                (u for u in users if u["id"] == response["user_id"]),
+                                None,
+                            )
+                            if member:
+                                if response["availability_status"] == "Available":
+                                    available_members.append(
+                                        {
+                                            "member": member,
+                                            "instruments": response["instruments"],
+                                            "response_id": response["id"],
+                                        }
+                                    )
+                                elif response["availability_status"] == "Not Available":
+                                    not_available_members.append(member)
+                                else:
+                                    if_needed_members.append(
+                                        {
+                                            "member": member,
+                                            "instruments": response["instruments"],
+                                            "response_id": response["id"],
+                                        }
+                                    )
+
+                        col1, col2, col3 = st.columns(3)
+
+                        with col1:
+                            st.subheader("Available")
+                            for avail in available_members:
+                                st.write(
+                                    f"• {avail['member']['name']} ({', '.join(avail['instruments'])})"
+                                )
+
+                        with col2:
+                            st.subheader("If Needed")
+                            for avail in if_needed_members:
+                                st.write(
+                                    f"• {avail['member']['name']} ({', '.join(avail['instruments'])})"
+                                )
+
+                        with col3:
+                            st.subheader("Not Available")
+                            for member in not_available_members:
+                                st.write(f"• {member['name']}")
+
+                        # Auto-generate roster button
+                        if st.button(
+                            "Auto-Generate Roster", key=f"auto_{service['id']}"
+                        ):
+                            # Simple auto-assignment logic
+                            new_assignments = []
+                            needed_roles = [
+                                "Backup Vocals",
+                                "Worship Lead",
+                                "Guitar",
+                                "Piano",
+                                "Bass",
+                                "Drums",
+                                "Electric Guitar",
+                            ]
+
+                            # Prioritize available members
+                            for role in needed_roles:
+                                # Find available members who can fill this role
+                                suitable_members = [
+                                    avail
+                                    for avail in available_members
+                                    if role in avail["instruments"]
+                                ]
+
+                                if suitable_members:
+                                    selected = random.choice(suitable_members)
+                                    if roster_manager.add_assignment(
+                                        service["id"], selected["member"]["id"], [role]
+                                    ):
+                                        new_assignments.append(
+                                            {
+                                                "service_id": service["id"],
+                                                "user_id": selected["member"]["id"],
+                                                "roles": [role],
+                                            }
+                                        )
+                                    # Remove from available to avoid double assignment
+                                    available_members.remove(selected)
+
+                            if new_assignments:
+                                st.success("Roster generated! Check View Roster tab.")
+                                # Refresh assignments data
+                                assignments = roster_manager.get_assignments()
+                            else:
+                                st.error("Failed to generate roster.")
+
+                        # Manual assignment
+                        st.subheader("Manual Assignment")
+
+                        # Check if roster already exists
+                        existing_assignments = [
+                            a for a in assignments if a["service_id"] == service["id"]
+                        ]
+
+                        if existing_assignments:
+                            st.write("Current assignments:")
+                            for assignment in existing_assignments:
+                                member = next(
+                                    (
+                                        u
+                                        for u in users
+                                        if u["id"] == assignment["user_id"]
+                                    ),
+                                    None,
+                                )
+                                if member:
+                                    roles = assignment["roles"]
+                                    # If it's a string, convert it back to list
+                                    if isinstance(roles, str):
+                                        try:
+                                            roles = json.loads(roles)
+                                        except:
+                                            roles = [roles]  # fallback, single string
+
+                                    st.write(f"• {member['name']}: {', '.join(roles)}")
+                                    if st.button(
+                                        "Remove", key=f"remove_{assignment['id']}"
+                                    ):
+                                        if roster_manager.delete_assignment(
+                                            assignment["id"]
+                                        ):
+                                            st.success("Assignment removed!")
+                                            st.rerun()
+
+                        # # Form to add new assignment
+                        # with st.form(f"assign_form_{service['id']}"):
+                        #     member_options = {
+                        #         f"{m['name']}": m
+                        #         for m in users
+                        #         if m["role"] in ["Member", "Leader"]
+                        #     }
+                        #     selected_member = st.selectbox(
+                        #         "Select member", options=list(member_options.keys())
+                        #     )
+                        #     member = member_options[selected_member]
+
+                        #     roles_data = (
+                        #         roster_manager.get_roles()
+                        #     )  # SELECT * FROM roles
+                        #     user_roles_map = {}
+                        #     for r in roles_data:
+                        #         user_roles_map.setdefault(r["user_id"], []).append(
+                        #             r["instrument"]
+                        #         )
+
+                        #     instrument_options = user_roles_map.get(member["id"], [])
+
+                        #     # Multiselect with those options
+                        #     roles = st.multiselect(
+                        #         "Roles (instruments/parts for this service)",
+                        #         options=instrument_options,
+                        #         default=instrument_options,  # preselect all by default
+                        #         # key=f"roles_{service['id']}_{member['id']}",
+                        #         key=f"roles_{service['id']}_{selected_member}",  # use name string
+                        #     )
+                        #     if st.form_submit_button("Assign to Service"):
+                        #         if roster_manager.add_assignment(
+                        #             service["id"], member["id"], roles
+                        #         ):
+                        #             st.success(
+                        #                 f"Assigned {member['name']} to {service['service_name']}"
+                        #             )
+                        #             st.rerun()
+
+                        member_options = {
+                            f"{m['name']}": m
+                            for m in users
+                            if m["role"] in ["Member", "Leader"]
+                        }
+                        selected_member = st.selectbox(
+                            "Select member",
+                            options=list(member_options.keys()),
+                            key=f"member_select_{service['id']}",
+                        )
+                        member = member_options[selected_member]
+
+                        # fetch instruments for this member
+                        roles_data = roster_manager.get_roles()
+                        user_roles_map = {}
+                        for r in roles_data:
+                            user_roles_map.setdefault(r["user_id"], []).append(
+                                r["instrument"]
+                            )
+                        instrument_options = user_roles_map.get(member["id"], [])
+
+                        with st.form(f"assign_form_{service['id']}"):
+                            roles = st.multiselect(
+                                "Roles (instruments/parts for this service)",
+                                options=instrument_options,
+                                default=instrument_options,
+                                key=f"roles_{service['id']}_{selected_member}",
+                            )
+                            if st.form_submit_button("Assign to Service"):
+                                if roster_manager.add_assignment(
+                                    service["id"], member["id"], roles
+                                ):
+                                    st.success(
+                                        f"Assigned {member['name']} to {service['service_name']}"
+                                    )
+                                    st.rerun()
+
+                        # Send reminders button
+                        if st.button("Send Reminders", key=f"remind_{service['id']}"):
+                            # In a real app, this would send emails
+                            non_responders = [
+                                u
+                                for u in users
+                                if u["role"] == "Member"
+                                and not any(
+                                    a["user_id"] == u["id"]
+                                    and a["service_id"] == service["id"]
+                                    for a in availability
+                                )
+                            ]
+
+                            if non_responders:
+                                st.warning(
+                                    f"Would send reminders to: {', '.join([u['name'] for u in non_responders])}"
+                                )
+                            else:
+                                st.success("Everyone has responded!")
+            else:
+                st.info("No services scheduled. Add a service using the form above.")
