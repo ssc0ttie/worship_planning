@@ -60,15 +60,28 @@ def get_roles():
         return []
 
 
-def add_user(name, email, role, instruments):
+def add_user(name, email, role):
     try:
         user_data = {
             "name": name,
             "email": email,
             "role": role,
-            "instruments": instruments,
+            # "instruments": instruments,
         }
         response = supabase.table("users").insert(user_data).execute()
+        return response.data[0] if response.data else None
+    except Exception as e:
+        st.error(f"Error adding user: {e}")
+        return None
+
+
+def add_role(user_id, instruments):
+    try:
+        role_data = {
+            "user_id": user_id,
+            "instruments": instruments,
+        }
+        response = supabase.table("roles").insert(role_data).execute()
         return response.data[0] if response.data else None
     except Exception as e:
         st.error(f"Error adding user: {e}")
