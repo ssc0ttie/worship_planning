@@ -36,6 +36,9 @@ from functions import to_chordpro
 from functions import transpose
 from functions import export_to_pdf
 from functions import song_manager
+from functions import setlist_manager
+from functions import roster_manager
+
 
 # st.title("Song Transposer")
 
@@ -52,6 +55,7 @@ with st.sidebar:
             "Settings  *place holder",
             "Help *place holder",
             "Manage Songs",
+            "Manage Setlist",
             "Adhoc : Transpose Song",
         ],
     )
@@ -61,24 +65,69 @@ st.session_state.active_page = page
 
 
 if page == "Adhoc : Transpose Song":
-    col1, col2 = st.columns(2)
-    with col1:
-        song_title = st.text_input(
-            "Enter Song Title*", placeholder="e.g., Amazing Grace"
+    # Choose input source
+    input_mode = st.radio(
+        "Choose Song Input Method:",
+        ["Paste Song", "Select from Songbank"],
+        horizontal=True,
+    )
+
+    if input_mode == "Paste Song":
+        col1, col2 = st.columns(2)
+        with col1:
+            song_title = st.text_input(
+                "Enter Song Title*", placeholder="e.g., Amazing Grace"
+            )
+            artist = st.text_input("Enter Artist", placeholder="e.g., John Newton")
+            transpose_steps = st.number_input(
+                "Transpose Steps*", min_value=-11, max_value=11, value=0, step=1
+            )
+            key = st.text_input("Enter Song Key*", placeholder="e.g., C, G, Am, etc.")
+
+        with col2:
+            song = st.text_area(
+                "Paste Song Here*",
+                height=400,
+                placeholder="""[C]Amazing [G]grace, how [C]sweet the [F]sound...""",
+            )
+        ##if new song##
+        newsong_title = song_title
+        newsong_artist = artist
+        newsong_arrangement = song
+        newsong_key = key
+    else:
+        # Songbank option
+        songs = song_manager.get_songs()
+        song_options = {f"{s['title']} by {s['artist']}": s for s in songs}
+        selected_song = st.selectbox(
+            "Select Song from Songbank", options=list(song_options.keys())
         )
-        artist = st.text_input("Enter Artist", placeholder="e.g., John Newton")
+        song_data = song_options[selected_song] if selected_song else None
+        song = song_data["arrangement"] if song_data else ""
+        song_title = song_data["title"] if song_data else ""
+        key = song_data["default_key"] if song_data else ""
+
         transpose_steps = st.number_input(
             "Transpose Steps*", min_value=-11, max_value=11, value=0, step=1
         )
-        key = st.text_input("Enter Song Key*", placeholder="e.g., C, G, Am, etc.")
 
-    with col2:
-        song = st.text_area(
-            "Paste Song Here*",
-            height=400,
-            placeholder="""[C]Amazing [G]grace, how [C]sweet the [F]sound...""",
-        )
+        # # Auto-fill title and artist if not manually entered
+        # if song_data:
+        #     if not song_title:
+        #         song_title = song_data["title"]
+        #     if not artist:
+        #         artist = song_data["artist"]
 
+    # Add to bank option
+    if input_mode == "Paste Song":
+        if st.button(
+            "🎵 Add Song to Library", type="primary", use_container_width=True
+        ):
+            if song_manager.add_song(
+                newsong_title, newsong_artist, newsong_arrangement, newsong_key
+            ):
+
+                st.success(f"Added song: {newsong_title} by {newsong_artist}")
     # Add a transpose button
     transpose_button = st.button(
         "🎵 Transpose Song", type="primary", use_container_width=True
@@ -100,6 +149,8 @@ if page == "Adhoc : Transpose Song":
         else:
             try:
                 with st.spinner("Transposing song..."):
+                    # Convert pasted song to ChordPro first
+                    # chordpro_song = to_chordpro.ug_to_chordpro(song)
                     # Perform Transpose and Nashville
                     transposed = transpose.transform_chordpro(
                         song, transpose_steps=transpose_steps
@@ -206,11 +257,57 @@ elif page == "Help":
 
 
 elif page == "Manage Songs":
-    st.header("Manage Songs in Database")
+
+    # # Initialize active tab state
+    # if "active_tab" not in st.session_state:
+    #     st.session_state.active_tab = "Ma"
+    col1, col2 = st.columns(2)
+    with col1:
+        st.header("Manage Songs in Database")
+    with col2:
+        ###########ADD SONG #################
+        with st.expander("🎵Add Song"):
+            with st.form("add_song_form", clear_on_submit=True):
+                from functions import song_manager
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    newsong_title = st.text_input(
+                        "Enter Song Title*", placeholder="e.g., Amazing Grace"
+                    )
+                    newsong_artist = st.text_input(
+                        "Enter Artist", placeholder="e.g., John Newton"
+                    )
+                    # transpose_steps = st.number_input(
+                    #     "Transpose Steps*", min_value=-11, max_value=11, value=0, step=1
+                    # )
+                    newsong_key = st.text_input(
+                        "Enter Song Key*", placeholder="e.g., C, G, Am, etc."
+                    )
+
+                with col2:
+                    newsong_arrangement = st.text_area(
+                        "Paste Song Here*",
+                        height=400,
+                        placeholder="""[C]Amazing [G]grace, how [C]sweet the [F]sound...""",
+                    )
+
+                # # Add a transpose button
+                # addsong_button = st.button(
+                #     "🎵 Add Song", type="primary", use_container_width=True
+                # )
+
+                if st.form_submit_button("Add Song"):
+                    if song_manager.add_song(
+                        newsong_title, newsong_artist, newsong_arrangement, newsong_key
+                    ):
+
+                        st.success(f"Added song: {newsong_title} by {newsong_artist}")
+                        st.rerun()
 
     songs = song_manager.get_songs()
     if songs:
-        for song in songs:
+        for song in sorted(songs, key=lambda x: x["title"]):
             with st.expander(f"{song['title']} by {song['artist']}"):
                 col1, col2 = st.columns([3, 1])
 
@@ -1011,3 +1108,179 @@ elif page == "Manage Roster":
 
                     active_tab
                     st.rerun()
+
+
+elif page == "Manage Setlist":
+    # Fetch data
+    songs = song_manager.get_songs()
+    services = roster_manager.get_services()
+    existing_setlists = setlist_manager.get_setlists()
+
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.subheader("Create New Setlist")
+
+        # Service selection
+        sorted_services = sorted(services, key=lambda x: x["service_date"])
+
+        service_options = {
+            f"{s['service_name']} - {s['service_date']}": s for s in sorted_services
+        }
+        selected_service = st.selectbox(
+            "Select Service:",
+            options=list(service_options.keys()),
+            index=0 if service_options else None,
+        )
+        service_info = service_options[selected_service] if selected_service else None
+
+        # Setlist name
+        setlist_name = st.text_input(
+            "Setlist Name",
+            value=f"Setlist for {selected_service}" if selected_service else "",
+        )
+
+        # Song selection
+        st.subheader("Add Songs to Setlist")
+
+        if not songs:
+            st.info("No songs available. Add songs in the 'Add New Song' tab.")
+        else:
+            # Initialize session state for setlist
+            if "current_setlist" not in st.session_state:
+                st.session_state.current_setlist = []
+
+            # Song selection
+            song_options = {f"{s['title']} by {s['artist']}": s for s in songs}
+            selected_song = st.selectbox(
+                "Select Song:", options=list(song_options.keys())
+            )
+            song_data = song_options[selected_song] if selected_song else None
+
+            # Key selection for this song
+            from functions.transpose import NOTES_FLAT, NOTES_SHARP
+
+            if song_data:
+                original_key = song_data.get("default_key", "C")
+                col_key1, col_key2 = st.columns([2, 1])
+                with col_key1:
+                    selected_key = st.selectbox(
+                        "Select Key:",
+                        options=NOTES_SHARP,
+                        index=(
+                            NOTES_SHARP.index(original_key)
+                            if original_key in NOTES_SHARP
+                            else 0
+                        ),
+                    )
+                with col_key2:
+                    # Calculate transpose steps
+                    if original_key in NOTES_SHARP and selected_key in NOTES_SHARP:
+                        original_idx = NOTES_SHARP.index(original_key)
+                        selected_idx = NOTES_SHARP.index(selected_key)
+                        transpose_steps = selected_idx - original_idx
+                        st.write(f"Transpose: {transpose_steps} steps")
+                        # Add to setlist button
+
+            if st.button("Add to Setlist") and song_data:
+                # Transpose the lyrics
+                transposed_lyrics = transpose.transform_chordpro(
+                    song_data["arrangement"], transpose_steps
+                )
+
+                # Add to current setlist
+                setlist_item = {
+                    "id": song_data["id"],
+                    "title": song_data["title"],
+                    "artist": song_data.get("artist", ""),
+                    "original_key": original_key,
+                    "selected_key": selected_key,
+                    "transpose_steps": transpose_steps,
+                    "original_lyrics": song_data["arrangement"],
+                    "transposed_lyrics": transposed_lyrics,
+                }
+
+                st.session_state.current_setlist.append(setlist_item)
+                st.success(f"Added '{song_data['title']}' to setlist!")
+    with col2:
+        st.subheader("Current Setlist")
+
+        if not st.session_state.current_setlist:
+            st.info("No songs in setlist. Add songs from the left column.")
+        else:
+            # Display current setlist
+            for i, item in enumerate(st.session_state.current_setlist):
+                with st.expander(f"{i+1}. {item['title']} - {item['selected_key']}"):
+                    st.write(f"**Artist:** {item.get('artist', 'Unknown')}")
+                    st.write(f"**Original Key:** {item['original_key']}")
+                    st.write(
+                        f"**Transposed to:** {item['selected_key']} ({item['transpose_steps']} steps)"
+                    )
+                    # Show preview of transposed lyrics
+                    preview_lines = item["transposed_lyrics"].split("\n")[:10]
+                    preview_text = "\n".join(preview_lines)
+                    if len(item["transposed_lyrics"].split("\n")) > 10:
+                        preview_text += "\n..."
+                    st.text_area(
+                        "Preview", value=preview_text, height=150, key=f"preview_{i}"
+                    )
+
+                    # Remove button
+                    if st.button("Remove", key=f"remove_{i}"):
+                        st.session_state.current_setlist.pop(i)
+                        st.rerun()
+            # Setlist actions
+            st.divider()
+
+            # Save setlist
+            if st.button("💾 Save Setlist"):
+                if setlist_name and st.session_state.current_setlist:
+                    setlist_data = {
+                        "name": setlist_name,
+                        "service_id": service_info["id"] if service_info else None,
+                        "service_name": (
+                            service_info["service_name"] if service_info else ""
+                        ),
+                        "service_date": (
+                            service_info["service_date"] if service_info else ""
+                        ),
+                        "song": ", ".join(
+                            s["title"] for s in st.session_state.current_setlist
+                        ),
+                    }
+
+                    from functions.setlist_manager import create_setlist
+
+                    if create_setlist(setlist_data):
+                        st.success("Setlist saved successfully!")
+                    else:
+                        st.error("Failed to save setlist.")
+                else:
+                    st.warning(
+                        "Please provide a setlist name and add at least one song."
+                    )
+
+            # Export to PDF
+            if st.button("📄 Export to PDF"):
+                from functions.export_to_pdf import export_setlist_to_pdf
+
+                if st.session_state.current_setlist:
+                    pdf_bytes = export_setlist_to_pdf(
+                        st.session_state.current_setlist,
+                        service_info,
+                        f"{setlist_name.replace(' ', '_')}.pdf",
+                    )
+
+                    if pdf_bytes:
+                        st.download_button(
+                            label="Download PDF",
+                            data=pdf_bytes,
+                            file_name=f"{setlist_name.replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                        )
+                else:
+                    st.warning("No songs in setlist to export.")
+
+            # Clear setlist
+            if st.button("🗑️ Clear Setlist"):
+                st.session_state.current_setlist = []
+                st.rerun()
