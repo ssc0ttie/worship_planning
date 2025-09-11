@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 
-st.title("Atril")
+# st.title("Worship Team Manager")
 
 ######################TABS########################
 # tab0, tab1, tab2 = st.tabs(["Library", "Setlists", "Rehersal View"])
@@ -38,6 +38,9 @@ from functions import export_to_pdf
 from functions import song_manager
 from functions import setlist_manager
 from functions import roster_manager
+from streamlit_pdf_viewer import pdf_viewer
+import tempfile
+import os
 
 
 # st.title("Song Transposer")
@@ -52,11 +55,11 @@ with st.sidebar:
         "Go to:",
         [
             "Manage Roster",
-            "Settings  *place holder",
-            "Help *place holder",
             "Manage Songs",
             "Manage Setlist",
             "Adhoc : Transpose Song",
+            "Settings  *place holder",
+            "Help *place holder",
         ],
     )
 
@@ -104,6 +107,11 @@ if page == "Adhoc : Transpose Song":
         )
         song_data = song_options[selected_song] if selected_song else None
         song = song_data["arrangement"] if song_data else ""
+        ## CLEAN SONGS
+        special_chars = ["■", "●", "◆", "▲", "▼", "○", "•", "▪", "▫", "◼", "◻"]
+        for char in special_chars:
+            song = song.replace(char, "")
+
         song_title = song_data["title"] if song_data else ""
         key = song_data["default_key"] if song_data else ""
 
@@ -195,6 +203,22 @@ if page == "Adhoc : Transpose Song":
             st.code(st.session_state.transposed_song, language=None)
 
             if st.session_state.transposed_pdf:
+                if st.button("Preview PDF", use_container_width=True):
+                    pdf_bytes = st.session_state.transposed_pdf
+                    if pdf_bytes:
+                        # Create a temporary file
+                        with tempfile.NamedTemporaryFile(
+                            delete=False, suffix=".pdf"
+                        ) as tmp:
+                            tmp.write(pdf_bytes)
+                            tmp_path = tmp.name
+
+                        # Display PDF
+                        pdf_viewer(tmp_path, width=700)
+
+                        # Clean up
+                        os.unlink(tmp_path)
+
                 st.download_button(
                     label="📥 Download Transposed PDF",
                     data=st.session_state.transposed_pdf,
@@ -392,7 +416,7 @@ elif page == "Manage Roster":
     if "active_tab" not in st.session_state:
         st.session_state.active_tab = "Dashboard"
 
-    st.header("Manage Roster")
+    # st.header("Manage Roster")
 
     users = roster_manager.get_users()
     services = roster_manager.get_services()
@@ -412,7 +436,7 @@ elif page == "Manage Roster":
 
     ###################### STREAMLIT ###################
     # App title and description
-    st.title("🎵 Worship Team Roster Manager")
+    st.header("🎵 Worship Team Roster Manager")
     st.markdown(
         """
     Streamline your worship team scheduling process. 
@@ -945,7 +969,10 @@ elif page == "Manage Roster":
                                     st.rerun()
 
                         # Send reminders button
-                        if st.button("Send Reminders", key=f"remind_{service['id']}"):
+                        if st.button(
+                            "Send Reminders: Not Yet Live",
+                            key=f"remind_{service['id']}",
+                        ):
                             # In a real app, this would send emails
                             non_responders = [
                                 u
@@ -1023,12 +1050,12 @@ elif page == "Manage Roster":
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    if st.button("Export as PDF"):
+                    if st.button("Export as PDF : Not Yet Live"):
                         # In a real app, this would generate a PDF
                         st.success("PDF export functionality would be implemented here")
 
                 with col2:
-                    if st.button("Email to Team"):
+                    if st.button("Email to Team: Not Yet Live"):
                         # In a real app, this would send emails
                         st.success("Email functionality would be implemented here")
 
@@ -1041,13 +1068,14 @@ elif page == "Manage Roster":
             st.info("No services scheduled. Add services in Admin Settings.")
 
     with tab5:  # APP MODE "Admin Settings":
-        st.header("Admin Settings")
+        st.subheader("Admin Settings")
 
-        tab1, tab2, tab3 = st.tabs(
-            ["Team Members", "Service Templates", "System Settings"]
+        (rostertab1,) = st.tabs(
+            ["Team Members"]
+            #  , "Service Templates", "System Settings"
         )
 
-        with tab1:
+        with rostertab1:
             st.subheader("Manage Team Members")
 
             # Display current members
@@ -1260,15 +1288,30 @@ elif page == "Manage Setlist":
                     )
 
             # Export to PDF
-            if st.button("📄 Export to PDF"):
-                from functions.export_to_pdf import export_setlist_to_pdf
+            if st.button("📄 Preview Songbook"):
+                from functions.export_to_pdf import export_setlist_to_pdf_compact
 
                 if st.session_state.current_setlist:
-                    pdf_bytes = export_setlist_to_pdf(
+                    pdf_bytes = export_setlist_to_pdf_compact(
                         st.session_state.current_setlist,
                         service_info,
                         f"{setlist_name.replace(' ', '_')}.pdf",
                     )
+
+                    # pdf_bytes = st.session_state.current_setlist
+                    if pdf_bytes:
+                        # Create a temporary file
+                        with tempfile.NamedTemporaryFile(
+                            delete=False, suffix=".pdf"
+                        ) as tmp:
+                            tmp.write(pdf_bytes)
+                            tmp_path = tmp.name
+
+                        # Display PDF
+                        pdf_viewer(tmp_path, width=700)
+
+                        # Clean up
+                        os.unlink(tmp_path)
 
                     if pdf_bytes:
                         st.download_button(
@@ -1284,3 +1327,20 @@ elif page == "Manage Setlist":
             if st.button("🗑️ Clear Setlist"):
                 st.session_state.current_setlist = []
                 st.rerun()
+
+            # if st.session_state.transposed_pdf:
+            #     if st.button("Preview PDF", use_container_width=True):
+            #         pdf_bytes = st.session_state.transposed_pdf
+            #         if pdf_bytes:
+            #             # Create a temporary file
+            #             with tempfile.NamedTemporaryFile(
+            #                 delete=False, suffix=".pdf"
+            #             ) as tmp:
+            #                 tmp.write(pdf_bytes)
+            #                 tmp_path = tmp.name
+
+            #             # Display PDF
+            #             pdf_viewer(tmp_path, width=700)
+
+            #             # Clean up
+            #             os.unlink(tmp_path)
