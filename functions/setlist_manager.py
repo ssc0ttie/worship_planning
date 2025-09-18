@@ -33,6 +33,38 @@ def get_setlists():
         return []
 
 
+def get_setlist_songs(setlist_row, song_manager):
+    """
+    Rebuilds full song objects for a saved setlist row.
+    """
+    all_songs = {s["title"]: s for s in song_manager.get_songs()}
+
+    setlist_titles = [t.strip() for t in setlist_row["song"].split(",")]
+
+    setlist_items = []
+    for title in setlist_titles:
+        if title in all_songs:
+            song_data = all_songs[title]
+            original_key = song_data.get("default_key", "C")
+
+            # No transpose info is stored in DB, so default to 0
+            setlist_items.append(
+                {
+                    "id": song_data["id"],
+                    "title": song_data["title"],
+                    "artist": song_data.get("artist", ""),
+                    "original_key": original_key,
+                    "selected_key": original_key,
+                    "transpose_steps": 0,
+                    "original_lyrics": song_data["arrangement"],
+                    "transposed_lyrics": song_data["arrangement"],
+                }
+            )
+        else:
+            st.warning(f"Song '{title}' not found in songs table.")
+    return setlist_items
+
+
 # --- PDF Export Functions ---
 def export_setlist_to_pdf(setlist_data, service_info, filename="setlist.pdf"):
     """Export setlist to a nicely formatted PDF"""

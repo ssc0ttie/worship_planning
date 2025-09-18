@@ -565,8 +565,14 @@ elif page == "Manage Roster":
                                 None,
                             )
                             if member:
+
+                                def get_roles(assignment):
+                                    return json.loads(assignment["roles"])
+
+                                assigned_roles = get_roles(assignment)
+
                                 st.write(
-                                    f"• {member['name']} - {', '.join(assignment['roles'])}"
+                                    f"• {member['name']} - {', '.join(assigned_roles)}"
                                 )
                     else:
                         st.warning("Roster not yet created")
@@ -804,53 +810,6 @@ elif page == "Manage Roster":
                             for member in not_available_members:
                                 st.write(f"• {member['name']}")
 
-                        # # Auto-generate roster button
-                        # if st.button(
-                        #     "Auto-Generate Roster", key=f"auto_{service['id']}"
-                        # ):
-                        #     # Simple auto-assignment logic
-                        #     new_assignments = []
-                        #     needed_roles = [
-                        #         "Backup Vocals",
-                        #         "Worship Leader",
-                        #         "Acoustic Guitar",
-                        #         "Keys",
-                        #         "Bass",
-                        #         "Drums",
-                        #         "Electric Guitar",
-                        #     ]
-
-                        #     # Prioritize available members
-                        #     for role in needed_roles:
-                        #         # Find available members who can fill this role
-                        #         suitable_members = [
-                        #             avail
-                        #             for avail in available_members
-                        #             if role in avail["instrument"]
-                        #         ]
-
-                        #         if suitable_members:
-                        #             selected = random.choice(suitable_members)
-                        #             if roster_manager.add_assignment(
-                        #                 service["id"], selected["member"]["id"], [role]
-                        #             ):
-                        #                 new_assignments.append(
-                        #                     {
-                        #                         "service_id": service["id"],
-                        #                         "user_id": selected["member"]["id"],
-                        #                         "roles": [role],
-                        #                     }
-                        #                 )
-                        #             # Remove from available to avoid double assignment
-                        #             available_members.remove(selected)
-
-                        #     if new_assignments:
-                        #         st.success("Roster generated! Check View Roster tab.")
-                        #         # Refresh assignments data
-                        #         assignments = roster_manager.get_assignments()
-                        #     else:
-                        #         st.error("Failed to generate roster.")
-
                         # Manual assignment
                         st.subheader("Manual Assignment")
 
@@ -889,46 +848,6 @@ elif page == "Manage Roster":
                                             st.success("Assignment removed!")
                                             active_tab
                                             st.rerun()
-
-                        # # Form to add new assignment
-                        # with st.form(f"assign_form_{service['id']}"):
-                        #     member_options = {
-                        #         f"{m['name']}": m
-                        #         for m in users
-                        #         if m["role"] in ["Member", "Leader"]
-                        #     }
-                        #     selected_member = st.selectbox(
-                        #         "Select member", options=list(member_options.keys())
-                        #     )
-                        #     member = member_options[selected_member]
-
-                        #     roles_data = (
-                        #         roster_manager.get_roles()
-                        #     )  # SELECT * FROM roles
-                        #     user_roles_map = {}
-                        #     for r in roles_data:
-                        #         user_roles_map.setdefault(r["user_id"], []).append(
-                        #             r["instrument"]
-                        #         )
-
-                        #     instrument_options = user_roles_map.get(member["id"], [])
-
-                        #     # Multiselect with those options
-                        #     roles = st.multiselect(
-                        #         "Roles (instruments/parts for this service)",
-                        #         options=instrument_options,
-                        #         default=instrument_options,  # preselect all by default
-                        #         # key=f"roles_{service['id']}_{member['id']}",
-                        #         key=f"roles_{service['id']}_{selected_member}",  # use name string
-                        #     )
-                        #     if st.form_submit_button("Assign to Service"):
-                        #         if roster_manager.add_assignment(
-                        #             service["id"], member["id"], roles
-                        #         ):
-                        #             st.success(
-                        #                 f"Assigned {member['name']} to {service['service_name']}"
-                        #             )
-                        #             st.rerun()
 
                         member_options = {
                             f"{m['name']}": m
@@ -1144,203 +1063,249 @@ elif page == "Manage Setlist":
     services = roster_manager.get_services()
     existing_setlists = setlist_manager.get_setlists()
 
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.subheader("Create New Setlist")
+    setlisttab1, setlisttab2 = st.tabs(["Create Setlist", "View Setlist"])
 
-        # Service selection
-        sorted_services = sorted(services, key=lambda x: x["service_date"])
+    with setlisttab1:
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            st.subheader("Create New Setlist")
 
-        service_options = {
-            f"{s['service_name']} - {s['service_date']}": s for s in sorted_services
-        }
-        selected_service = st.selectbox(
-            "Select Service:",
-            options=list(service_options.keys()),
-            index=0 if service_options else None,
-        )
-        service_info = service_options[selected_service] if selected_service else None
+            # Service selection
+            sorted_services = sorted(services, key=lambda x: x["service_date"])
 
-        # Setlist name
-        setlist_name = st.text_input(
-            "Setlist Name",
-            value=f"Setlist for {selected_service}" if selected_service else "",
-        )
+            service_options = {
+                f"{s['service_name']} - {s['service_date']}": s for s in sorted_services
+            }
+            selected_service = st.selectbox(
+                "Select Service:",
+                options=list(service_options.keys()),
+                index=0 if service_options else None,
+            )
+            service_info = (
+                service_options[selected_service] if selected_service else None
+            )
 
-        # Song selection
-        st.subheader("Add Songs to Setlist")
-
-        if not songs:
-            st.info("No songs available. Add songs in the 'Add New Song' tab.")
-        else:
-            # Initialize session state for setlist
-            if "current_setlist" not in st.session_state:
-                st.session_state.current_setlist = []
+            # Setlist name
+            setlist_name = st.text_input(
+                "Setlist Name",
+                value=f"Setlist for {selected_service}" if selected_service else "",
+            )
 
             # Song selection
-            song_options = {f"{s['title']} by {s['artist']}": s for s in songs}
-            selected_song = st.selectbox(
-                "Select Song:", options=list(song_options.keys())
-            )
-            song_data = song_options[selected_song] if selected_song else None
+            st.subheader("Add Songs to Setlist")
 
-            # Key selection for this song
-            from functions.transpose import NOTES_FLAT, NOTES_SHARP
+            if not songs:
+                st.info("No songs available. Add songs in the 'Add New Song' tab.")
+            else:
+                # Initialize session state for setlist
+                if "current_setlist" not in st.session_state:
+                    st.session_state.current_setlist = []
 
-            if song_data:
-                original_key = song_data.get("default_key", "C")
-                col_key1, col_key2 = st.columns([2, 1])
-                with col_key1:
-                    selected_key = st.selectbox(
-                        "Select Key:",
-                        options=NOTES_SHARP,
-                        index=(
-                            NOTES_SHARP.index(original_key)
-                            if original_key in NOTES_SHARP
-                            else 0
-                        ),
-                    )
-                with col_key2:
-                    # Calculate transpose steps
-                    if original_key in NOTES_SHARP and selected_key in NOTES_SHARP:
-                        original_idx = NOTES_SHARP.index(original_key)
-                        selected_idx = NOTES_SHARP.index(selected_key)
-                        transpose_steps = selected_idx - original_idx
-                        st.write(f"Transpose: {transpose_steps} steps")
-                        # Add to setlist button
-
-            if st.button("Add to Setlist") and song_data:
-                # Transpose the lyrics
-                transposed_lyrics = transpose.transform_chordpro(
-                    song_data["arrangement"], transpose_steps
+                # Song selection
+                song_options = {f"{s['title']} by {s['artist']}": s for s in songs}
+                selected_song = st.selectbox(
+                    "Select Song:", options=list(song_options.keys())
                 )
+                song_data = song_options[selected_song] if selected_song else None
 
-                # Add to current setlist
-                setlist_item = {
-                    "id": song_data["id"],
-                    "title": song_data["title"],
-                    "artist": song_data.get("artist", ""),
-                    "original_key": original_key,
-                    "selected_key": selected_key,
-                    "transpose_steps": transpose_steps,
-                    "original_lyrics": song_data["arrangement"],
-                    "transposed_lyrics": transposed_lyrics,
-                }
+                # Key selection for this song
+                from functions.transpose import NOTES_FLAT, NOTES_SHARP
 
-                st.session_state.current_setlist.append(setlist_item)
-                st.success(f"Added '{song_data['title']}' to setlist!")
-    with col2:
-        st.subheader("Current Setlist")
+                if song_data:
+                    original_key = song_data.get("default_key", "C")
+                    col_key1, col_key2 = st.columns([2, 1])
+                    with col_key1:
+                        selected_key = st.selectbox(
+                            "Select Key:",
+                            options=NOTES_SHARP,
+                            index=(
+                                NOTES_SHARP.index(original_key)
+                                if original_key in NOTES_SHARP
+                                else 0
+                            ),
+                        )
+                    with col_key2:
+                        # Calculate transpose steps
+                        if original_key in NOTES_SHARP and selected_key in NOTES_SHARP:
+                            original_idx = NOTES_SHARP.index(original_key)
+                            selected_idx = NOTES_SHARP.index(selected_key)
+                            transpose_steps = selected_idx - original_idx
+                            st.write(f"Transpose: {transpose_steps} steps")
+                            # Add to setlist button
 
-        if not st.session_state.current_setlist:
-            st.info("No songs in setlist. Add songs from the left column.")
-        else:
-            # Display current setlist
-            for i, item in enumerate(st.session_state.current_setlist):
-                with st.expander(f"{i+1}. {item['title']} - {item['selected_key']}"):
-                    st.write(f"**Artist:** {item.get('artist', 'Unknown')}")
-                    st.write(f"**Original Key:** {item['original_key']}")
-                    st.write(
-                        f"**Transposed to:** {item['selected_key']} ({item['transpose_steps']} steps)"
-                    )
-                    # Show preview of transposed lyrics
-                    preview_lines = item["transposed_lyrics"].split("\n")[:10]
-                    preview_text = "\n".join(preview_lines)
-                    if len(item["transposed_lyrics"].split("\n")) > 10:
-                        preview_text += "\n..."
-                    st.text_area(
-                        "Preview", value=preview_text, height=150, key=f"preview_{i}"
+                if st.button("Add to Setlist") and song_data:
+                    # Transpose the lyrics
+                    transposed_lyrics = transpose.transform_chordpro(
+                        song_data["arrangement"], transpose_steps
                     )
 
-                    # Remove button
-                    if st.button("Remove", key=f"remove_{i}"):
-                        st.session_state.current_setlist.pop(i)
-                        st.rerun()
-            # Setlist actions
-            st.divider()
-
-            # Save setlist
-            if st.button("💾 Save Setlist"):
-                if setlist_name and st.session_state.current_setlist:
-                    setlist_data = {
-                        "name": setlist_name,
-                        "service_id": service_info["id"] if service_info else None,
-                        "service_name": (
-                            service_info["service_name"] if service_info else ""
-                        ),
-                        "service_date": (
-                            service_info["service_date"] if service_info else ""
-                        ),
-                        "song": ", ".join(
-                            s["title"] for s in st.session_state.current_setlist
-                        ),
+                    # Add to current setlist
+                    setlist_item = {
+                        "id": song_data["id"],
+                        "title": song_data["title"],
+                        "artist": song_data.get("artist", ""),
+                        "original_key": original_key,
+                        "selected_key": selected_key,
+                        "transpose_steps": transpose_steps,
+                        "original_lyrics": song_data["arrangement"],
+                        "transposed_lyrics": transposed_lyrics,
                     }
 
-                    from functions.setlist_manager import create_setlist
+                    # setlist_manager.create_setlist(setlist_item)
+                    st.session_state.current_setlist.append(setlist_item)
+                    st.success(f"Added '{song_data['title']}' to setlist!")
+        with col2:
+            st.subheader("Current Setlist")
 
-                    if create_setlist(setlist_data):
-                        st.success("Setlist saved successfully!")
+            if not st.session_state.current_setlist:
+                st.info("No songs in setlist. Add songs from the left column.")
+            else:
+                # Display current setlist
+                for i, item in enumerate(st.session_state.current_setlist):
+                    with st.expander(
+                        f"{i+1}. {item['title']} - {item['selected_key']}"
+                    ):
+                        st.write(f"**Artist:** {item.get('artist', 'Unknown')}")
+                        st.write(f"**Original Key:** {item['original_key']}")
+                        st.write(
+                            f"**Transposed to:** {item['selected_key']} ({item['transpose_steps']} steps)"
+                        )
+                        # Show preview of transposed lyrics
+                        preview_lines = item["transposed_lyrics"].split("\n")[:10]
+                        preview_text = "\n".join(preview_lines)
+                        if len(item["transposed_lyrics"].split("\n")) > 10:
+                            preview_text += "\n..."
+                        st.text_area(
+                            "Preview",
+                            value=preview_text,
+                            height=150,
+                            key=f"preview_{i}",
+                        )
+
+                        # Remove button
+                        if st.button("Remove", key=f"remove_{i}"):
+                            st.session_state.current_setlist.pop(i)
+                            st.rerun()
+                # Setlist actions
+                st.divider()
+
+                # Save setlist
+                if st.button("💾 Save Setlist"):
+                    if setlist_name and st.session_state.current_setlist:
+                        setlist_data = {
+                            "name": setlist_name,
+                            "service_id": service_info["id"] if service_info else None,
+                            "service_name": (
+                                service_info["service_name"] if service_info else ""
+                            ),
+                            "service_date": (
+                                service_info["service_date"] if service_info else ""
+                            ),
+                            "song": ", ".join(
+                                s["title"] for s in st.session_state.current_setlist
+                            ),
+                            "song_id": ", ".join(
+                                s["id"] for s in st.session_state.current_setlist
+                            ),
+                        }
+
+                        from functions.setlist_manager import create_setlist
+
+                        if create_setlist(setlist_data):
+                            st.success("Setlist saved successfully!")
+                        else:
+                            st.error("Failed to save setlist.")
                     else:
-                        st.error("Failed to save setlist.")
-                else:
-                    st.warning(
-                        "Please provide a setlist name and add at least one song."
-                    )
+                        st.warning(
+                            "Please provide a setlist name and add at least one song."
+                        )
 
-            # Export to PDF
-            if st.button("📄 Preview Songbook"):
+                # Export to PDF
+                if st.button("📄 Preview Songbook"):
+                    from functions.export_to_pdf import export_setlist_to_pdf_compact
+
+                    if st.session_state.current_setlist:
+                        pdf_bytes = export_setlist_to_pdf_compact(
+                            st.session_state.current_setlist,
+                            service_info,
+                            f"{setlist_name.replace(' ', '_')}.pdf",
+                        )
+
+                        # pdf_bytes = st.session_state.current_setlist
+                        if pdf_bytes:
+                            # Create a temporary file
+                            with tempfile.NamedTemporaryFile(
+                                delete=False, suffix=".pdf"
+                            ) as tmp:
+                                tmp.write(pdf_bytes)
+                                tmp_path = tmp.name
+
+                            # Display PDF
+                            pdf_viewer(tmp_path, width=700)
+
+                            # Clean up
+                            os.unlink(tmp_path)
+
+                        if pdf_bytes:
+                            st.download_button(
+                                label="Download PDF",
+                                data=pdf_bytes,
+                                file_name=f"{setlist_name.replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                            )
+                    else:
+                        st.warning("No songs in setlist to export.")
+
+                # Clear setlist
+                if st.button("🗑️ Clear Setlist"):
+                    st.session_state.current_setlist = []
+                    st.rerun()
+
+    with setlisttab2:
+        st.subheader("Existing Setlists")
+
+        if not existing_setlists:
+            st.info("No setlists available.")
+        else:
+            setlist_options = {
+                f"{s['name']} - {s['service_date']}": s for s in existing_setlists
+            }
+            selected_label = st.selectbox(
+                "Select a Setlist:", list(setlist_options.keys())
+            )
+            selected_setlist = setlist_options[selected_label]
+
+            st.write(
+                f"**Service:** {selected_setlist['service_name']} ({selected_setlist['service_date']})"
+            )
+            st.write(f"**Songs:** {selected_setlist['song']}")
+
+            if st.button("📄 Preview Songbook (Saved)"):
+                from functions.setlist_manager import get_setlist_songs
+
+                setlist_items = get_setlist_songs(selected_setlist, song_manager)
+
                 from functions.export_to_pdf import export_setlist_to_pdf_compact
 
-                if st.session_state.current_setlist:
-                    pdf_bytes = export_setlist_to_pdf_compact(
-                        st.session_state.current_setlist,
-                        service_info,
-                        f"{setlist_name.replace(' ', '_')}.pdf",
+                pdf_bytes = export_setlist_to_pdf_compact(
+                    setlist_items,
+                    selected_setlist,
+                    f"{selected_setlist['name'].replace(' ', '_')}.pdf",
+                )
+
+                if pdf_bytes:
+                    with tempfile.NamedTemporaryFile(
+                        delete=False, suffix=".pdf"
+                    ) as tmp:
+                        tmp.write(pdf_bytes)
+                        tmp_path = tmp.name
+
+                    pdf_viewer(tmp_path, width=700)
+                    os.unlink(tmp_path)
+
+                    st.download_button(
+                        label="Download PDF",
+                        data=pdf_bytes,
+                        file_name=f"{selected_setlist['name'].replace(' ', '_')}.pdf",
+                        mime="application/pdf",
                     )
-
-                    # pdf_bytes = st.session_state.current_setlist
-                    if pdf_bytes:
-                        # Create a temporary file
-                        with tempfile.NamedTemporaryFile(
-                            delete=False, suffix=".pdf"
-                        ) as tmp:
-                            tmp.write(pdf_bytes)
-                            tmp_path = tmp.name
-
-                        # Display PDF
-                        pdf_viewer(tmp_path, width=700)
-
-                        # Clean up
-                        os.unlink(tmp_path)
-
-                    if pdf_bytes:
-                        st.download_button(
-                            label="Download PDF",
-                            data=pdf_bytes,
-                            file_name=f"{setlist_name.replace(' ', '_')}.pdf",
-                            mime="application/pdf",
-                        )
-                else:
-                    st.warning("No songs in setlist to export.")
-
-            # Clear setlist
-            if st.button("🗑️ Clear Setlist"):
-                st.session_state.current_setlist = []
-                st.rerun()
-
-            # if st.session_state.transposed_pdf:
-            #     if st.button("Preview PDF", use_container_width=True):
-            #         pdf_bytes = st.session_state.transposed_pdf
-            #         if pdf_bytes:
-            #             # Create a temporary file
-            #             with tempfile.NamedTemporaryFile(
-            #                 delete=False, suffix=".pdf"
-            #             ) as tmp:
-            #                 tmp.write(pdf_bytes)
-            #                 tmp_path = tmp.name
-
-            #             # Display PDF
-            #             pdf_viewer(tmp_path, width=700)
-
-            #             # Clean up
-            #             os.unlink(tmp_path)
