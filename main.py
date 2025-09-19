@@ -58,8 +58,8 @@ with st.sidebar:
             "Manage Songs",
             "Manage Setlist",
             "Adhoc : Transpose Song",
-            "Settings  *place holder",
-            "Help *place holder",
+            # "Settings  *place holder",
+            # "Help *place holder",
         ],
     )
 
@@ -1280,11 +1280,67 @@ elif page == "Manage Setlist":
             )
             st.write(f"**Songs:** {selected_setlist['song']}")
 
+            # Load songs with full details
+            from functions.setlist_manager import get_setlist_songs
+
+            setlist_items = get_setlist_songs(selected_setlist, song_manager)
+
+            # For each song, let the user pick a transpose key
+            for i, item in enumerate(setlist_items):
+                with st.expander(f"{i+1}. {item['title']}"):
+                    st.write(f"**Artist:** {item.get('artist', 'Unknown')}")
+                    st.write(f"**Original Key:** {item['original_key']}")
+
+                    # Key selector
+                    col_key1, col_key2 = st.columns([2, 1])
+                    with col_key1:
+                        selected_key = st.selectbox(
+                            "Select Key:",
+                            options=NOTES_SHARP,
+                            index=(
+                                NOTES_SHARP.index(item["original_key"])
+                                if item["original_key"] in NOTES_SHARP
+                                else 0
+                            ),
+                            key=f"view_key_{i}",
+                        )
+                    with col_key2:
+                        # Calculate transpose steps
+                        if (
+                            item["original_key"] in NOTES_SHARP
+                            and selected_key in NOTES_SHARP
+                        ):
+                            original_idx = NOTES_SHARP.index(item["original_key"])
+                            selected_idx = NOTES_SHARP.index(selected_key)
+                            transpose_steps = selected_idx - original_idx
+                            st.write(f"Transpose: {transpose_steps} steps")
+                        else:
+                            transpose_steps = 0
+
+                    # Transpose lyrics
+                    transposed_lyrics = transpose.transform_chordpro(
+                        item["original_lyrics"], transpose_steps
+                    )
+
+                    # Show preview
+                    preview_lines = transposed_lyrics.split("\n")[:10]
+                    preview_text = "\n".join(preview_lines)
+                    if len(transposed_lyrics.split("\n")) > 10:
+                        preview_text += "\n..."
+                    st.text_area(
+                        "Preview",
+                        value=preview_text,
+                        height=150,
+                        key=f"view_preview_{i}",
+                    )
+
+                    # Update in memory (so export button uses this version)
+                    item["selected_key"] = selected_key
+                    item["transpose_steps"] = transpose_steps
+                    item["transposed_lyrics"] = transposed_lyrics
+
+            # Export button now uses updated transposed lyrics
             if st.button("📄 Preview Songbook (Saved)"):
-                from functions.setlist_manager import get_setlist_songs
-
-                setlist_items = get_setlist_songs(selected_setlist, song_manager)
-
                 from functions.export_to_pdf import export_setlist_to_pdf_compact
 
                 pdf_bytes = export_setlist_to_pdf_compact(
@@ -1292,17 +1348,14 @@ elif page == "Manage Setlist":
                     selected_setlist,
                     f"{selected_setlist['name'].replace(' ', '_')}.pdf",
                 )
-
                 if pdf_bytes:
                     with tempfile.NamedTemporaryFile(
                         delete=False, suffix=".pdf"
                     ) as tmp:
                         tmp.write(pdf_bytes)
                         tmp_path = tmp.name
-
                     pdf_viewer(tmp_path, width=700)
                     os.unlink(tmp_path)
-
                     st.download_button(
                         label="Download PDF",
                         data=pdf_bytes,
