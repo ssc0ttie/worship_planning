@@ -7,7 +7,7 @@ pandas
 supabase
 dotenv
 # os
-pdf_viewer
+# pdf_viewer
 streamlit_pdf_viewer
 
 # ZoneInfo
