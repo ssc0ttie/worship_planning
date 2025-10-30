@@ -59,7 +59,7 @@ with st.sidebar:
             "Manage Setlist",
             "Adhoc : Transpose Song",
             # "Settings  *place holder",
-            # "Help *place holder",
+            "Help",
         ],
     )
 
@@ -252,34 +252,366 @@ elif page == "Settings":
     st.write("Configure your transposition preferences here.")
     # Add settings options if needed
 
+# elif page == "Help":
+#     st.subheader("Help & Instructions")
+#     st.markdown(
+#         """
+#     ## How to use this app:
+#     ### **Manage Roster:**
+
+#     1. **Leader: Manage Schedule**
+#     - **Add New Service**:
+#     -- Service Name : Name of the Service
+#     -- Service Date : Date of Service
+#     - **Add Service Button**: Save Service
+
+#     2. **Member: Submit Availability**:
+#     - **Submit your availability**:
+#         - Select Your Name : Name of band member
+#         - List of Services: Select Date of Service
+#         - Availability: Select Availability
+#         - Select Instrument : Select Instrument / Role
+
+#         - **Submit Button**: Submit Availability
+
+#     - **Change Response Button :** Change to Not Available (change instrument not yet supported)
+
+#     ### **Manage Songs:**
+#     **This Page**:
+#     - Add Songs
+#     - See list of songs in the bank
+#     - allows users to view, edit and delete songs
+
+#     1. **Edit / Delete (Not Supported Yet) / View Songs**
+#     - **Edit**:
+#         - Title : Edit Song Title
+#         - Artist: Edit Artist
+#         - Default Key: Edit Key
+#         - Lyrics: Edit Lyrics and Chords
+#         - **Save Changes Button**: Save Song Edits
+
+#     2. **🎵Add Song**:
+#     - **Add a Song (Left Hand Side)**:
+#         - Enter Song Title : e.g., Amazing Grace
+#         - Enter Artist: e.g., John Newton
+#         - Enter Song Key: e.g., C, G, Am, etc.
+#         - Paste Song Here: Paste Song Lyrics
+#             - *Paste with Chords
+#             - *Works best when copying from Ultimate Guitar
+#             - *Make sure the lines aren't very long, ideally single column per line - this will affect exporting quality
+#         - **Add Song Button** : Add New Song
+
+#     """
+#     )
+
+
 elif page == "Help":
-    st.subheader("Help & Instructions")
+    st.subheader("📖 Help & Instructions")
     st.markdown(
         """
-    ### How to use this app:
-    
-    1. **Fill in required fields** (marked with *)
-    - **Song Title**: Name of the song
-    - **Song Key**: Original key of the song (e.g., C, G, Am)
-    - **Paste Song**: UltimateGuitar Format Song
-    
-    2. **Optional fields**:
-    - **Artist**: Song artist name
-    - **Transpose Steps**: Number of semitones to transpose (-11 to +11)
-    
-    3. **Click "Transpose Song"** to process
-    
-    4. **Download** the transposed versions as PDF
-    
-    ### ChordPro Format Example:
-    ```
-    [C]Amazing [G]grace, how [C]sweet the [F]sound
-    [C]That saved a [G]wretch like [C]me
-    ```
+    Welcome to the Worship Setlist Manager! This app helps you manage your worship team roster, songs, and setlists all in one place.
     """
     )
 
+    # Table of Contents
+    with st.expander("📋 **Quick Navigation**", expanded=True):
+        st.markdown(
+            """
+        - [Manage Roster](#manage-roster)
+        - [Manage Songs](#manage-songs)  
+        - [Manage Setlists](#manage-setlists)
+        - [Adhoc Transpose](#adhoc-transpose)
+        - [Troubleshooting](#troubleshooting)
+        """
+        )
 
+    st.markdown("---")
+
+    # Manage Roster Section
+    st.markdown("## 👥 **Manage Roster**")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(
+            """
+        ### **For Worship Leaders**
+        #### **📅 Schedule Services**
+        1. **Add New Service**
+           - **Service Name**: Name of the service (e.g., "Sunday Service", "ICPM", "Christmas Party", "Band Practice")
+           - **Service Date**: Select the date of the service
+           - Click **"Add Service"** to save
+        
+        2. **View Schedule**
+           - See all scheduled services
+           - View team member availability for each service
+        """
+        )
+
+    with col2:
+        st.markdown(
+            """
+        ### **For Team Members**  
+        #### **✅ Submit Availability**
+        1. **Select Your Name** from the dropdown
+        2. **Choose Services** you're responding to
+        3. **Set Availability**: Available / Not Available
+        4. **Select Instrument/Role**
+        5. Click **"Submit Availability"** to save
+        
+        #### **🔄 Update Responses**
+        - Use **"Change Response"** to update availability
+        - Currently supports changing to "Not Available"
+        """
+        )
+
+    st.markdown("---")
+
+    # Manage Songs Section
+    st.markdown("## 🎵 **Manage Songs**")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(
+            """
+        ### **View & Edit Songs**
+        - **Browse** your entire song library
+        - **Search** for specific songs
+        - **Edit** existing songs
+        - **View** complete lyrics and chords
+        
+        #### **Editing Songs**
+        1. Click **"Edit"** next to any song
+        2. Modify:
+           - **Title**: Song name
+           - **Artist**: Original artist
+           - **Default Key**: Preferred key
+           - **Lyrics & Chords**: Full song text
+        3. Click **"Save Changes"** to update
+        """
+        )
+
+    with col2:
+        st.markdown(
+            """
+        ### **Add New Songs**
+        #### **Required Fields:**
+        - **Song Title**: e.g., "Amazing Grace"
+        - **Artist**: e.g., "John Newton"
+        - **Song Key**: e.g., "C", "G", "Am", etc.
+        
+        #### **Lyrics & Chords Formatting:**
+        - **Paste with chords** included
+        - **Works best** when copying from Ultimate Guitar
+        - **Formatting Tips**:
+          - Keep lines relatively short
+          - Single column format works best
+          - This affects export quality for charts
+        - Click **"Add Song"** to save to library
+        """
+        )
+
+    st.markdown("---")
+
+    # Manage Setlists Section
+    st.markdown("## 📝 **Manage Setlists**")
+
+    st.markdown(
+        """
+    ### **Create New Setlists** (Create Setlist Tab)
+    
+    1. **Setlist Basics**
+       - **Select Service**: Choose from existing services
+       - **Setlist Name**: Name your setlist (auto-filled if service selected)
+    
+    2. **Add Songs to Setlist**
+       - **Select Song**: Choose from your song library
+       - **Transpose**: Change key for this specific setlist
+         - Original key shows automatically
+         - Select new key from dropdown
+         - See transpose steps calculated automatically
+       - Click **"Add to Setlist"** to include song for the setlist
+    
+    3. **Current Setlist**
+       - **Expand each song** to see:
+         - Artist information
+         - Key transposition details
+         - Preview of transposed lyrics/chords
+         - **Remove** button to delete from setlist
+    
+    4. **Save & Export**
+       - **💾 Save Setlist**: Store to database for later use
+       - **📄 Preview Songbook**: Generate PDF preview in the app
+       - **Download PDF**: Download the full setlist as PDF
+       - **🗑️ Clear Setlist**: Start over with empty setlist
+    """
+    )
+
+    st.markdown(
+        """
+    ### **View & Use Existing Setlists** (View Setlist Tab)
+    
+    1. **Select Saved Setlist**
+       - Choose from previously created setlists
+       - Shows service date and song list
+    
+    2. **Customize for Current Use**
+       - Each song can be **transposed individually**
+       - Select new key for each song
+       - Transpose steps calculated automatically
+       - Preview shows updated lyrics/chords
+    
+    3. **Export Updated Setlist**
+       - **📄 Preview Songbook (Saved)**: Generate PDF with current transpositions
+       - **Download PDF**: Get the customized setlist
+    """
+    )
+
+    st.markdown("---")
+
+    # NEW: Adhoc Transpose Section
+    st.markdown("## 🎼 **Adhoc Transpose**")
+
+    st.markdown(
+        """
+    ### **Quick Song Transposition Tool**
+    
+    This tool allows you to quickly transpose individual songs and generate chord charts in different formats.
+    """
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(
+            """
+        ### **Input Methods**
+        
+        #### **🎵 Paste Song**
+        - **Song Title***: Name of the song
+        - **Artist**: Original artist
+        - **Song Key***: Original key of the song
+        - **Transpose Steps***: Number of steps to transpose (-11 to +11)
+        - **Paste Song***: Lyrics with chords in chord format
+        
+        #### **📚 Select from Songbank**
+        - Choose from existing songs in your library
+        - Automatically loads title, artist, and key
+        - Cleans special characters automatically
+        - Set transpose steps as needed
+        """
+        )
+
+    with col2:
+        st.markdown(
+            """
+        ### **Output Options**
+        
+        #### **Transposed Version**
+        - Shows chords transposed by specified steps
+        - **Preview PDF**: View formatted chord chart in app
+        - **Download PDF**: Get professional chord sheet
+        
+        #### **Nashville Numbers**
+        - Converts chords to Nashville number system
+        - Based on the original key you specify
+        - **Download PDF**: Get number-based chord chart
+        
+        #### **Additional Features**
+        - **Add to Library**: Save pasted songs to songbank
+        - **Clear Results**: Start over with new song
+        - **Live Preview**: See transposed text immediately
+        """
+        )
+
+        # Adhoc Transpose Workflow
+        st.markdown(
+            """
+        ### 🔄 **Step-by-Step Transpose Workflow**
+        
+        1. **Choose Input Method**: Paste new song or select from library
+        2. **Fill Required Fields**: Title, key, and song text are mandatory
+        3. **Set Transposition**: Choose how many steps to transpose (-11 to +11)
+        4. **Optional**: Click **"Add Song to Library"** to save for future use
+        5. **Click "Transpose Song"** to process
+        6. **View Results** in the Transposed and Nashville tabs
+        7. **Preview or Download PDFs** for both versions
+        8. **Use "Clear Results"** to start over with a new song
+        """
+        )
+
+    st.markdown("---")
+
+    # # Troubleshooting Section
+    # st.markdown("## 🔧 **Troubleshooting**")
+
+    # with st.expander("Common Issues & Solutions"):
+    #     st.markdown(
+    #         """
+    #     ### **❌ Song Formatting Issues**
+    #     - **Problem**: Lyrics/chords not displaying correctly
+    #     - **Solution**: Copy directly from Ultimate Guitar, avoid long lines
+
+    #     ### **❌ Availability Not Saving**
+    #     - **Problem**: Changes to availability not reflected
+    #     - **Solution**: Use "Change Response" button instead of resubmitting
+
+    #     ### **❌ Setlist Saving Errors**
+    #     - **Problem**: Error when saving setlists
+    #     - **Solution**: Ensure all required fields are filled, especially setlist name
+
+    #     ### **❌ Can't Find Songs**
+    #     - **Problem**: Songs not appearing in search
+    #     - **Solution**: Check spelling, or add song if not in library
+
+    #     ### **❌ Transposition Not Working**
+    #     - **Problem**: Chords not transposing correctly
+    #     - **Solution**: Ensure chord formatting is consistent (e.g., [C] not C)
+
+    #     ### **❌ Adhoc Transpose Failing**
+    #     - **Problem**: "Please fill in all required fields" error
+    #     - **Solution**: Make sure Title, Key, and Song fields are filled (marked with *)
+    #     """
+    #     )
+
+    # Tips & Best Practices
+    with st.expander("💡 **Best Practices**"):
+        st.markdown(
+            """
+        ### **General Tips**
+        - **Plan Ahead**: Create setlists well before services
+        - **Key Consistency**: Consider vocal ranges when transposing
+        - **Preview Always**: Check PDF preview before finalizing
+        - **Clear Naming**: Use descriptive setlist names
+        
+        ### **Song Management**
+        - **Regular Updates**: Update song library with correct default keys
+        - **Format Consistency**: Use consistent chord formatting (brackets recommended)
+        - **Backup Copies**: Save important setlists as PDFs locally
+        
+        ### **Transposition Tips**
+        - **Test First**: Use Adhoc Transpose to test different keys
+        - **Vocal Ranges**: Consider your vocalists' comfortable ranges
+        - **Instrument Limits**: Remember capo positions and instrument ranges
+        - **Nashville Numbers**: Great for quick key changes during rehearsal
+        
+        ### **Team Communication**
+        - **Share Early**: Distribute PDFs to team members in advance
+        - **Clear Markings**: Use Nashville numbers for flexible key changes
+        - **Rehearse Transitions**: Practice moving between different keys
+        """
+        )
+
+    # Contact Support
+    st.markdown("---")
+    st.markdown(
+        """
+    ### **Still Need Help?**
+    If you're experiencing issues not covered here, please contact your system administrator 
+    or worship team leader for assistance.
+    """
+    )
 elif page == "Manage Songs":
 
     # # Initialize active tab state
@@ -450,10 +782,10 @@ elif page == "Manage Roster":
     tab1, tab2, tab3, tab4, tab5 = st.tabs(
         [
             "Dashboard",
-            "Submit Availability",
-            "Manage Schedule",
             "View Roster",
-            "Admin Settings",
+            "Member: Submit Availability",
+            "Leader: Manage Schedule",
+            "Leader:Admin Settings",
         ]
     )
 
@@ -587,7 +919,7 @@ elif page == "Manage Roster":
             st.info("No upcoming services scheduled. Add services in Admin Settings.")
 
     # Submit Availability
-    with tab2:  ## APP MODE "Submit Availability":
+    with tab3:  ## APP MODE "Submit Availability":
         st.header("Submit Your Availability")
 
         # User selection (in real app, this would be based on login)
@@ -696,7 +1028,7 @@ elif page == "Manage Roster":
             else:
                 st.info("No upcoming services to respond to.")
     # Manage Schedule (Leaders only)
-    with tab3:  # APP MODE "Manage Schedule":
+    with tab4:  # APP MODE "Manage Schedule":
         st.header("Manage Service Schedule")
 
         # Check if user is a leader (simplified for demo)
@@ -913,7 +1245,7 @@ elif page == "Manage Roster":
             else:
                 st.info("No services scheduled. Add a service using the form above.")
 
-    with tab4:  # APP MODE "View Roster":
+    with tab2:  # APP MODE "View Roster":
         st.header("View Service Rosters")
 
         if services:
@@ -1204,9 +1536,9 @@ elif page == "Manage Setlist":
                             "song": ", ".join(
                                 s["title"] for s in st.session_state.current_setlist
                             ),
-                            "song_id": ", ".join(
-                                s["id"] for s in st.session_state.current_setlist
-                            ),
+                            # "song_id": ", ".join(
+                            #     s["id"] for s in st.session_state.current_setlist
+                            # ),
                         }
 
                         from functions.setlist_manager import create_setlist
