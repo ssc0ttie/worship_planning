@@ -1672,6 +1672,29 @@ elif page == "Manage Setlist":
                     item["transposed_lyrics"] = transposed_lyrics
 
             # Export button now uses updated transposed lyrics
+            # if st.button("📄 Preview Songbook (Saved)"):
+            #     from functions.export_to_pdf import export_setlist_to_pdf_compact
+
+            #     pdf_bytes = export_setlist_to_pdf_compact(
+            #         setlist_items,
+            #         selected_setlist,
+            #         f"{selected_setlist['name'].replace(' ', '_')}.pdf",
+            #     )
+            #     if pdf_bytes:
+            #         with tempfile.NamedTemporaryFile(
+            #             delete=False, suffix=".pdf"
+            #         ) as tmp:
+            #             tmp.write(pdf_bytes)
+            #             tmp_path = tmp.name
+            #         pdf_viewer(tmp_path, width=700)
+            #         os.unlink(tmp_path)
+            #         st.download_button(
+            #             label="Download PDF",
+            #             data=pdf_bytes,
+            #             file_name=f"{selected_setlist['name'].replace(' ', '_')}.pdf",
+            #             mime="application/pdf",
+            #         )
+
             if st.button("📄 Preview Songbook (Saved)"):
                 from functions.export_to_pdf import export_setlist_to_pdf_compact
 
@@ -1686,11 +1709,31 @@ elif page == "Manage Setlist":
                     ) as tmp:
                         tmp.write(pdf_bytes)
                         tmp_path = tmp.name
-                    pdf_viewer(tmp_path, width=700)
+
+                    # Use tabs for better mobile organization
+                    preview_tab, download_tab = st.tabs(["📄 Preview", "📥 Download"])
+
+                    with preview_tab:
+                        st.subheader("Songbook Preview")
+                        pdf_viewer(tmp_path, width="100%", height=500)
+
+                    with download_tab:
+                        st.subheader("Download Options")
+                        st.download_button(
+                            label="Download PDF File",
+                            data=pdf_bytes,
+                            file_name=f"{selected_setlist['name'].replace(' ', '_')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True,
+                        )
+
+                        st.info("💡 **Mobile Tips:**")
+                        st.markdown(
+                            """
+                        - Pinch to zoom in the PDF preview
+                        - Download for offline viewing
+                        - Landscape mode may provide better viewing
+                        """
+                        )
+
                     os.unlink(tmp_path)
-                    st.download_button(
-                        label="Download PDF",
-                        data=pdf_bytes,
-                        file_name=f"{selected_setlist['name'].replace(' ', '_')}.pdf",
-                        mime="application/pdf",
-                    )
