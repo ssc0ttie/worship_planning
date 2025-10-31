@@ -1695,14 +1695,79 @@ elif page == "Manage Setlist":
             #             mime="application/pdf",
             #         )
 
-            if st.button("📄 Preview Songbook (Saved)"):
+            # if st.button("📄 Preview Songbook (Saved)"):
+            #     from functions.export_to_pdf import export_setlist_to_pdf_compact
+
+            #     pdf_bytes = export_setlist_to_pdf_compact(
+            #         setlist_items,
+            #         selected_setlist,
+            #         f"{selected_setlist['name'].replace(' ', '_')}.pdf",
+            #     )
+            #     if pdf_bytes:
+            #         with tempfile.NamedTemporaryFile(
+            #             delete=False, suffix=".pdf"
+            #         ) as tmp:
+            #             tmp.write(pdf_bytes)
+            #             tmp_path = tmp.name
+
+            #         # Use tabs for better mobile organization
+            #         preview_tab, download_tab = st.tabs(["📄 Preview", "📥 Download"])
+
+            #         with preview_tab:
+            #             st.subheader("Songbook Preview")
+            #             pdf_viewer(tmp_path, width="100%", height=500)
+
+            #         with download_tab:
+            #             st.subheader("Download Options")
+            #             st.download_button(
+            #                 label="Download PDF File",
+            #                 data=pdf_bytes,
+            #                 file_name=f"{selected_setlist['name'].replace(' ', '_')}.pdf",
+            #                 mime="application/pdf",
+            #                 use_container_width=True,
+            #             )
+
+            #             st.info("💡 **Mobile Tips:**")
+            #             st.markdown(
+            #                 """
+            #             - Pinch to zoom in the PDF preview
+            #             - Download for offline viewing
+            #             - Landscape mode may provide better viewing
+            #             """
+            #             )
+
+            #         os.unlink(tmp_path)
+
+            # Initialize session state at the top of your script or function
+            if "show_pdf_preview" not in st.session_state:
+                st.session_state.show_pdf_preview = False
+            if "pdf_full_screen" not in st.session_state:
+                st.session_state.pdf_full_screen = False
+            if "cached_pdf_bytes" not in st.session_state:
+                st.session_state.cached_pdf_bytes = None
+
+            # Your button to trigger the preview
+            if (
+                st.button("📄 Preview Songbook (Saved)")
+                or st.session_state.show_pdf_preview
+            ):
                 from functions.export_to_pdf import export_setlist_to_pdf_compact
 
-                pdf_bytes = export_setlist_to_pdf_compact(
-                    setlist_items,
-                    selected_setlist,
-                    f"{selected_setlist['name'].replace(' ', '_')}.pdf",
-                )
+                # Only generate PDF if we don't have it cached or if we're forcing a refresh
+                if (
+                    st.session_state.cached_pdf_bytes is None
+                    or not st.session_state.show_pdf_preview
+                ):
+                    pdf_bytes = export_setlist_to_pdf_compact(
+                        setlist_items,
+                        selected_setlist,
+                        f"{selected_setlist['name'].replace(' ', '_')}.pdf",
+                    )
+                    st.session_state.cached_pdf_bytes = pdf_bytes
+                    st.session_state.show_pdf_preview = True
+                else:
+                    pdf_bytes = st.session_state.cached_pdf_bytes
+
                 if pdf_bytes:
                     with tempfile.NamedTemporaryFile(
                         delete=False, suffix=".pdf"
@@ -1710,12 +1775,39 @@ elif page == "Manage Setlist":
                         tmp.write(pdf_bytes)
                         tmp_path = tmp.name
 
-                    # Use tabs for better mobile organization
+                    # Use tabs for organization
                     preview_tab, download_tab = st.tabs(["📄 Preview", "📥 Download"])
 
                     with preview_tab:
-                        st.subheader("Songbook Preview")
-                        pdf_viewer(tmp_path, width="100%", height=500)
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.subheader("Songbook Preview")
+                        with col2:
+                            # Full screen toggle - uses session state to persist
+                            full_screen = st.toggle(
+                                "📱 Mobile View",
+                                value=st.session_state.pdf_full_screen,
+                                help="Optimize for mobile viewing with larger text",
+                                key="mobile_view_toggle",  # Important: unique key
+                            )
+                            st.session_state.pdf_full_screen = full_screen
+
+                        # Close preview button
+                        if st.button("✕ Close Preview", key="close_preview"):
+                            st.session_state.show_pdf_preview = False
+                            st.session_state.cached_pdf_bytes = None
+                            st.rerun()
+
+                        # Adjust PDF viewer based on toggle
+                        if full_screen:
+                            # Full screen mode with larger display
+                            pdf_viewer(tmp_path, width="100%", height=800)
+                            st.success(
+                                "🔍 **Mobile View Active**: Pinch to zoom for best experience"
+                            )
+                        else:
+                            # Regular view
+                            pdf_viewer(tmp_path, width="100%", height=500)
 
                     with download_tab:
                         st.subheader("Download Options")
@@ -1730,7 +1822,8 @@ elif page == "Manage Setlist":
                         st.info("💡 **Mobile Tips:**")
                         st.markdown(
                             """
-                        - Pinch to zoom in the PDF preview
+                        - Enable **Mobile View** for larger text
+                        - Pinch to zoom in the PDF preview  
                         - Download for offline viewing
                         - Landscape mode may provide better viewing
                         """
