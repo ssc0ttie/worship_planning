@@ -1797,6 +1797,14 @@ elif page == "Manage Setlist":
                         st.session_state.cached_pdf_bytes_lyrics_only
                     )
 
+                # Close preview button
+                if st.button("✕ Close Preview", key="close_preview_regular"):
+                    st.session_state.show_pdf_preview = False
+                    st.session_state.cached_pdf_bytes = None
+                    st.session_state.cached_pdf_bytes_nashville = None
+                    st.session_state.cached_pdf_bytes_lyrics_only = None
+                    st.rerun()
+
                 if pdf_bytes and pdf_bytes_nashville and pdf_bytes_lyrics_only:
                     # Create temporary files for all versions
                     with tempfile.NamedTemporaryFile(
@@ -1843,14 +1851,6 @@ elif page == "Manage Setlist":
                                 help="Optimize for mobile viewing with larger text",
                                 key="mobile_view_toggle_regular",
                             )
-
-                        # Close preview button
-                        if st.button("✕ Close Preview", key="close_preview_regular"):
-                            st.session_state.show_pdf_preview = False
-                            st.session_state.cached_pdf_bytes = None
-                            st.session_state.cached_pdf_bytes_nashville = None
-                            st.session_state.cached_pdf_bytes_lyrics_only = None
-                            st.rerun()
 
                         # Adjust PDF viewer based on toggle
                         if full_screen:
