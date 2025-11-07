@@ -1657,7 +1657,7 @@ elif page == "Manage Setlist":
                     transposed_lyrics_nashville = transpose.transform_chordpro(
                         item["original_lyrics"],
                         nashville=True,
-                        key=selected_key,
+                        key=item["original_key"],
                     )
 
                     # Generate lyrics-only version (remove chords)
