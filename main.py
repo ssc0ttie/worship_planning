@@ -1660,6 +1660,11 @@ elif page == "Manage Setlist":
                         key=selected_key,
                     )
 
+                    # Generate lyrics-only version (remove chords)
+                    lyrics_only = transpose.remove_chords_from_chordpro(
+                        transposed_lyrics
+                    )
+
                     # Show REGULAR preview
                     st.write("**Standard Chords Preview:**")
                     preview_lines = transposed_lyrics.split("\n")[:10]
@@ -1680,7 +1685,7 @@ elif page == "Manage Setlist":
                     ]
                     preview_text_nashville = "\n".join(preview_lines_nashville)
                     if len(transposed_lyrics_nashville.split("\n")) > 10:
-                        preview_text_nashville += "\n..."  # Fixed: was updating preview_text instead of preview_text_nashville
+                        preview_text_nashville += "\n..."
                     st.text_area(
                         "Nashville Preview",
                         value=preview_text_nashville,
@@ -1688,13 +1693,27 @@ elif page == "Manage Setlist":
                         key=f"nashville_preview_{i}",
                     )
 
-                    # Update in memory - STORE BOTH VERSIONS SEPARATELY
+                    # Show LYRICS-ONLY preview (for media team)
+                    st.write("**Lyrics Only Preview (Media Team):**")
+                    preview_lines_lyrics = lyrics_only.split("\n")[:10]
+                    preview_text_lyrics = "\n".join(preview_lines_lyrics)
+                    if len(lyrics_only.split("\n")) > 10:
+                        preview_text_lyrics += "\n..."
+                    st.text_area(
+                        "Lyrics Only Preview",
+                        value=preview_text_lyrics,
+                        height=150,
+                        key=f"lyrics_only_preview_{i}",
+                    )
+
+                    # Update in memory - STORE ALL THREE VERSIONS SEPARATELY
                     item["selected_key"] = selected_key
                     item["transpose_steps"] = transpose_steps
                     item["transposed_lyrics"] = transposed_lyrics  # Regular version
                     item["transposed_lyrics_nashville"] = (
                         transposed_lyrics_nashville  # Nashville version
                     )
+                    item["lyrics_only"] = lyrics_only  # Lyrics-only version
 
             # Initialize session state
             if "show_pdf_preview" not in st.session_state:
@@ -1705,6 +1724,8 @@ elif page == "Manage Setlist":
                 st.session_state.cached_pdf_bytes = None
             if "cached_pdf_bytes_nashville" not in st.session_state:
                 st.session_state.cached_pdf_bytes_nashville = None
+            if "cached_pdf_bytes_lyrics_only" not in st.session_state:
+                st.session_state.cached_pdf_bytes_lyrics_only = None
 
             # Your button to trigger the preview
             if (
@@ -1721,21 +1742,25 @@ elif page == "Manage Setlist":
                     # Create copies of setlist_items for each version
                     regular_items = []
                     nashville_items = []
+                    lyrics_only_items = []
 
                     for item in setlist_items:
                         # Regular version
                         regular_item = item.copy()
-                        regular_item["transposed_lyrics"] = item[
-                            "transposed_lyrics"
-                        ]  # Regular chords
+                        regular_item["transposed_lyrics"] = item["transposed_lyrics"]
                         regular_items.append(regular_item)
 
                         # Nashville version
                         nashville_item = item.copy()
                         nashville_item["transposed_lyrics"] = item[
                             "transposed_lyrics_nashville"
-                        ]  # Nashville chords
+                        ]
                         nashville_items.append(nashville_item)
+
+                        # Lyrics-only version
+                        lyrics_only_item = item.copy()
+                        lyrics_only_item["transposed_lyrics"] = item["lyrics_only"]
+                        lyrics_only_items.append(lyrics_only_item)
 
                     # Generate regular PDF
                     pdf_bytes = export_setlist_to_pdf_compact(
@@ -1751,15 +1776,29 @@ elif page == "Manage Setlist":
                         f"{selected_setlist['name'].replace(' ', '_')}_nashville.pdf",
                     )
 
+                    # Generate lyrics-only PDF
+                    pdf_bytes_lyrics_only = export_setlist_to_pdf_compact(
+                        lyrics_only_items,
+                        selected_setlist,
+                        f"{selected_setlist['name'].replace(' ', '_')}_lyrics_only.pdf",
+                        # You might want to add this parameter to your PDF function
+                    )
+
                     st.session_state.cached_pdf_bytes = pdf_bytes
                     st.session_state.cached_pdf_bytes_nashville = pdf_bytes_nashville
+                    st.session_state.cached_pdf_bytes_lyrics_only = (
+                        pdf_bytes_lyrics_only
+                    )
                     st.session_state.show_pdf_preview = True
                 else:
                     pdf_bytes = st.session_state.cached_pdf_bytes
                     pdf_bytes_nashville = st.session_state.cached_pdf_bytes_nashville
+                    pdf_bytes_lyrics_only = (
+                        st.session_state.cached_pdf_bytes_lyrics_only
+                    )
 
-                if pdf_bytes and pdf_bytes_nashville:
-                    # Create temporary files for both versions
+                if pdf_bytes and pdf_bytes_nashville and pdf_bytes_lyrics_only:
+                    # Create temporary files for all versions
                     with tempfile.NamedTemporaryFile(
                         delete=False, suffix=".pdf"
                     ) as tmp_regular:
@@ -1772,9 +1811,25 @@ elif page == "Manage Setlist":
                         tmp_nashville.write(pdf_bytes_nashville)
                         tmp_path_nashville = tmp_nashville.name
 
-                    # Use tabs for organization
-                    preview_tab, preview_tab_nashville, download_tab = st.tabs(
-                        ["📄 Standard Chords", "🎵 Nashville Numbers", "📥 Download"]
+                    with tempfile.NamedTemporaryFile(
+                        delete=False, suffix=".pdf"
+                    ) as tmp_lyrics_only:
+                        tmp_lyrics_only.write(pdf_bytes_lyrics_only)
+                        tmp_path_lyrics_only = tmp_lyrics_only.name
+
+                    # Use tabs for organization - now with 4 tabs
+                    (
+                        preview_tab,
+                        preview_tab_nashville,
+                        preview_tab_lyrics,
+                        download_tab,
+                    ) = st.tabs(
+                        [
+                            "📄 Standard Chords",
+                            "🎵 Nashville Numbers",
+                            "🎤 Lyrics Only",
+                            "📥 Download",
+                        ]
                     )
 
                     with preview_tab:
@@ -1794,6 +1849,7 @@ elif page == "Manage Setlist":
                             st.session_state.show_pdf_preview = False
                             st.session_state.cached_pdf_bytes = None
                             st.session_state.cached_pdf_bytes_nashville = None
+                            st.session_state.cached_pdf_bytes_lyrics_only = None
                             st.rerun()
 
                         # Adjust PDF viewer based on toggle
@@ -1815,13 +1871,6 @@ elif page == "Manage Setlist":
                                 key="mobile_view_toggle_nashville",
                             )
 
-                        # Close preview button
-                        if st.button("✕ Close Preview", key="close_preview_nashville"):
-                            st.session_state.show_pdf_preview = False
-                            st.session_state.cached_pdf_bytes = None
-                            st.session_state.cached_pdf_bytes_nashville = None
-                            st.rerun()
-
                         # Adjust PDF viewer based on toggle
                         if full_screen_nashville:
                             pdf_viewer(tmp_path_nashville, width="100%", height=800)
@@ -1829,10 +1878,30 @@ elif page == "Manage Setlist":
                         else:
                             pdf_viewer(tmp_path_nashville, width="100%", height=500)
 
+                    with preview_tab_lyrics:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.subheader("Lyrics Only Preview - Media Team")
+                            st.info("🎤 **For live projection - chords removed**")
+                        with col2:
+                            full_screen_lyrics = st.toggle(
+                                "📱 Mobile View",
+                                value=st.session_state.pdf_full_screen,
+                                help="Optimize for mobile viewing with larger text",
+                                key="mobile_view_toggle_lyrics",
+                            )
+
+                        # Adjust PDF viewer based on toggle
+                        if full_screen_lyrics:
+                            pdf_viewer(tmp_path_lyrics_only, width="100%", height=800)
+                            st.success("🔍 **Mobile View Active**")
+                        else:
+                            pdf_viewer(tmp_path_lyrics_only, width="100%", height=500)
+
                     with download_tab:
                         st.subheader("Download Options")
 
-                        col_dl1, col_dl2 = st.columns(2)
+                        col_dl1, col_dl2, col_dl3 = st.columns(3)
 
                         with col_dl1:
                             st.write("**Standard Chords**")
@@ -1843,6 +1912,8 @@ elif page == "Manage Setlist":
                                 mime="application/pdf",
                                 use_container_width=True,
                             )
+                            st.caption("For musicians with chord charts")
+
                         with col_dl2:
                             st.write("**Nashville Number System**")
                             st.download_button(
@@ -1852,7 +1923,30 @@ elif page == "Manage Setlist":
                                 mime="application/pdf",
                                 use_container_width=True,
                             )
+                            st.caption("For easy transposition")
+
+                        with col_dl3:
+                            st.write("**Lyrics Only**")
+                            st.download_button(
+                                label="🎤 Download Lyrics PDF",
+                                data=pdf_bytes_lyrics_only,
+                                file_name=f"{selected_setlist['name'].replace(' ', '_')}_lyrics_only.pdf",
+                                mime="application/pdf",
+                                use_container_width=True,
+                            )
+                            st.caption("For media team & projection")
+
+                        st.info("💡 **Media Team Tips:**")
+                        st.markdown(
+                            """
+                        - **Lyrics Only PDF**: Clean version for live projection
+                        - No chords to distract congregation
+                        - Larger text for better readability
+                        - Perfect for lyric projection during worship
+                        """
+                        )
 
                     # Clean up temporary files
                     os.unlink(tmp_path_regular)
                     os.unlink(tmp_path_nashville)
+                    os.unlink(tmp_path_lyrics_only)

@@ -134,3 +134,26 @@ def transform_chordpro(text: str, transpose_steps=0, nashville=False, key=""):
         return f"[{out}]"
 
     return CHORD_RE.sub(repl, text)
+
+
+def remove_chords_from_chordpro(chordpro_text):
+    """
+    Remove chords from ChordPro format, leaving only lyrics.
+    Handles chord notations like [C], [G/B], etc.
+    """
+    import re
+
+    # Remove chord notations [chord]
+    lyrics_only = re.sub(r"\[.*?\]", "", chordpro_text)
+
+    # Clean up extra spaces and empty lines
+    lines = lyrics_only.split("\n")
+    cleaned_lines = []
+
+    for line in lines:
+        # Remove lines that are only whitespace or very short (likely chord lines)
+        stripped_line = line.strip()
+        if stripped_line and len(stripped_line) > 2:  # Adjust threshold as needed
+            cleaned_lines.append(stripped_line)
+
+    return "\n".join(cleaned_lines)
