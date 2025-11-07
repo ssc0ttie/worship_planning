@@ -1420,7 +1420,7 @@ elif page == "Manage Setlist":
             # Setlist name
             setlist_name = st.text_input(
                 "Setlist Name",
-                value=f"Setlist for {selected_service}" if selected_service else "",
+                value=f"{selected_service}" if selected_service else "",
             )
 
             # Song selection
@@ -1599,9 +1599,7 @@ elif page == "Manage Setlist":
         if not existing_setlists:
             st.info("No setlists available.")
         else:
-            setlist_options = {
-                f"{s['name']} - {s['service_date']}": s for s in existing_setlists
-            }
+            setlist_options = {f"{s['name']}-{s['song']}": s for s in existing_setlists}
             selected_label = st.selectbox(
                 "Select a Setlist:", list(setlist_options.keys())
             )
@@ -1622,6 +1620,7 @@ elif page == "Manage Setlist":
                 with st.expander(f"{i+1}. {item['title']}"):
                     st.write(f"**Artist:** {item.get('artist', 'Unknown')}")
                     st.write(f"**Original Key:** {item['original_key']}")
+                    original_key = item["original_key"]
 
                     # Key selector
                     col_key1, col_key2 = st.columns([2, 1])
@@ -1649,102 +1648,63 @@ elif page == "Manage Setlist":
                         else:
                             transpose_steps = 0
 
-                    # Transpose lyrics
+                    # Transpose lyrics - REGULAR
                     transposed_lyrics = transpose.transform_chordpro(
                         item["original_lyrics"], transpose_steps
                     )
 
-                    # Show preview
+                    # Transpose lyrics NASHVILLE
+                    transposed_lyrics_nashville = transpose.transform_chordpro(
+                        item["original_lyrics"],
+                        nashville=True,
+                        key=selected_key,
+                    )
+
+                    # Show REGULAR preview
+                    st.write("**Standard Chords Preview:**")
                     preview_lines = transposed_lyrics.split("\n")[:10]
                     preview_text = "\n".join(preview_lines)
                     if len(transposed_lyrics.split("\n")) > 10:
                         preview_text += "\n..."
                     st.text_area(
-                        "Preview",
+                        "Regular Preview",
                         value=preview_text,
                         height=150,
-                        key=f"view_preview_{i}",
+                        key=f"regular_preview_{i}",
                     )
 
-                    # Update in memory (so export button uses this version)
+                    # Show NASHVILLE preview
+                    st.write("**Nashville Number System Preview:**")
+                    preview_lines_nashville = transposed_lyrics_nashville.split("\n")[
+                        :10
+                    ]
+                    preview_text_nashville = "\n".join(preview_lines_nashville)
+                    if len(transposed_lyrics_nashville.split("\n")) > 10:
+                        preview_text_nashville += "\n..."  # Fixed: was updating preview_text instead of preview_text_nashville
+                    st.text_area(
+                        "Nashville Preview",
+                        value=preview_text_nashville,
+                        height=150,
+                        key=f"nashville_preview_{i}",
+                    )
+
+                    # Update in memory - STORE BOTH VERSIONS SEPARATELY
                     item["selected_key"] = selected_key
                     item["transpose_steps"] = transpose_steps
-                    item["transposed_lyrics"] = transposed_lyrics
+                    item["transposed_lyrics"] = transposed_lyrics  # Regular version
+                    item["transposed_lyrics_nashville"] = (
+                        transposed_lyrics_nashville  # Nashville version
+                    )
 
-            # Export button now uses updated transposed lyrics
-            # if st.button("📄 Preview Songbook (Saved)"):
-            #     from functions.export_to_pdf import export_setlist_to_pdf_compact
-
-            #     pdf_bytes = export_setlist_to_pdf_compact(
-            #         setlist_items,
-            #         selected_setlist,
-            #         f"{selected_setlist['name'].replace(' ', '_')}.pdf",
-            #     )
-            #     if pdf_bytes:
-            #         with tempfile.NamedTemporaryFile(
-            #             delete=False, suffix=".pdf"
-            #         ) as tmp:
-            #             tmp.write(pdf_bytes)
-            #             tmp_path = tmp.name
-            #         pdf_viewer(tmp_path, width=700)
-            #         os.unlink(tmp_path)
-            #         st.download_button(
-            #             label="Download PDF",
-            #             data=pdf_bytes,
-            #             file_name=f"{selected_setlist['name'].replace(' ', '_')}.pdf",
-            #             mime="application/pdf",
-            #         )
-
-            # if st.button("📄 Preview Songbook (Saved)"):
-            #     from functions.export_to_pdf import export_setlist_to_pdf_compact
-
-            #     pdf_bytes = export_setlist_to_pdf_compact(
-            #         setlist_items,
-            #         selected_setlist,
-            #         f"{selected_setlist['name'].replace(' ', '_')}.pdf",
-            #     )
-            #     if pdf_bytes:
-            #         with tempfile.NamedTemporaryFile(
-            #             delete=False, suffix=".pdf"
-            #         ) as tmp:
-            #             tmp.write(pdf_bytes)
-            #             tmp_path = tmp.name
-
-            #         # Use tabs for better mobile organization
-            #         preview_tab, download_tab = st.tabs(["📄 Preview", "📥 Download"])
-
-            #         with preview_tab:
-            #             st.subheader("Songbook Preview")
-            #             pdf_viewer(tmp_path, width="100%", height=500)
-
-            #         with download_tab:
-            #             st.subheader("Download Options")
-            #             st.download_button(
-            #                 label="Download PDF File",
-            #                 data=pdf_bytes,
-            #                 file_name=f"{selected_setlist['name'].replace(' ', '_')}.pdf",
-            #                 mime="application/pdf",
-            #                 use_container_width=True,
-            #             )
-
-            #             st.info("💡 **Mobile Tips:**")
-            #             st.markdown(
-            #                 """
-            #             - Pinch to zoom in the PDF preview
-            #             - Download for offline viewing
-            #             - Landscape mode may provide better viewing
-            #             """
-            #             )
-
-            #         os.unlink(tmp_path)
-
-            # Initialize session state at the top of your script or function
+            # Initialize session state
             if "show_pdf_preview" not in st.session_state:
                 st.session_state.show_pdf_preview = False
             if "pdf_full_screen" not in st.session_state:
                 st.session_state.pdf_full_screen = False
             if "cached_pdf_bytes" not in st.session_state:
                 st.session_state.cached_pdf_bytes = None
+            if "cached_pdf_bytes_nashville" not in st.session_state:
+                st.session_state.cached_pdf_bytes_nashville = None
 
             # Your button to trigger the preview
             if (
@@ -1758,75 +1718,141 @@ elif page == "Manage Setlist":
                     st.session_state.cached_pdf_bytes is None
                     or not st.session_state.show_pdf_preview
                 ):
+                    # Create copies of setlist_items for each version
+                    regular_items = []
+                    nashville_items = []
+
+                    for item in setlist_items:
+                        # Regular version
+                        regular_item = item.copy()
+                        regular_item["transposed_lyrics"] = item[
+                            "transposed_lyrics"
+                        ]  # Regular chords
+                        regular_items.append(regular_item)
+
+                        # Nashville version
+                        nashville_item = item.copy()
+                        nashville_item["transposed_lyrics"] = item[
+                            "transposed_lyrics_nashville"
+                        ]  # Nashville chords
+                        nashville_items.append(nashville_item)
+
+                    # Generate regular PDF
                     pdf_bytes = export_setlist_to_pdf_compact(
-                        setlist_items,
+                        regular_items,
                         selected_setlist,
                         f"{selected_setlist['name'].replace(' ', '_')}.pdf",
                     )
+
+                    # Generate Nashville PDF
+                    pdf_bytes_nashville = export_setlist_to_pdf_compact(
+                        nashville_items,
+                        selected_setlist,
+                        f"{selected_setlist['name'].replace(' ', '_')}_nashville.pdf",
+                    )
+
                     st.session_state.cached_pdf_bytes = pdf_bytes
+                    st.session_state.cached_pdf_bytes_nashville = pdf_bytes_nashville
                     st.session_state.show_pdf_preview = True
                 else:
                     pdf_bytes = st.session_state.cached_pdf_bytes
+                    pdf_bytes_nashville = st.session_state.cached_pdf_bytes_nashville
 
-                if pdf_bytes:
+                if pdf_bytes and pdf_bytes_nashville:
+                    # Create temporary files for both versions
                     with tempfile.NamedTemporaryFile(
                         delete=False, suffix=".pdf"
-                    ) as tmp:
-                        tmp.write(pdf_bytes)
-                        tmp_path = tmp.name
+                    ) as tmp_regular:
+                        tmp_regular.write(pdf_bytes)
+                        tmp_path_regular = tmp_regular.name
+
+                    with tempfile.NamedTemporaryFile(
+                        delete=False, suffix=".pdf"
+                    ) as tmp_nashville:
+                        tmp_nashville.write(pdf_bytes_nashville)
+                        tmp_path_nashville = tmp_nashville.name
 
                     # Use tabs for organization
-                    preview_tab, download_tab = st.tabs(["📄 Preview", "📥 Download"])
+                    preview_tab, preview_tab_nashville, download_tab = st.tabs(
+                        ["📄 Standard Chords", "🎵 Nashville Numbers", "📥 Download"]
+                    )
 
                     with preview_tab:
                         col1, col2 = st.columns([3, 1])
                         with col1:
-                            st.subheader("Songbook Preview")
+                            st.subheader("Standard Chords Preview")
                         with col2:
-                            # Full screen toggle - uses session state to persist
                             full_screen = st.toggle(
                                 "📱 Mobile View",
                                 value=st.session_state.pdf_full_screen,
                                 help="Optimize for mobile viewing with larger text",
-                                key="mobile_view_toggle",  # Important: unique key
+                                key="mobile_view_toggle_regular",
                             )
-                            st.session_state.pdf_full_screen = full_screen
 
                         # Close preview button
-                        if st.button("✕ Close Preview", key="close_preview"):
+                        if st.button("✕ Close Preview", key="close_preview_regular"):
                             st.session_state.show_pdf_preview = False
                             st.session_state.cached_pdf_bytes = None
+                            st.session_state.cached_pdf_bytes_nashville = None
                             st.rerun()
 
                         # Adjust PDF viewer based on toggle
                         if full_screen:
-                            # Full screen mode with larger display
-                            pdf_viewer(tmp_path, width="100%", height=800)
-                            st.success(
-                                "🔍 **Mobile View Active**: Pinch to zoom for best experience"
-                            )
+                            pdf_viewer(tmp_path_regular, width="100%", height=800)
+                            st.success("🔍 **Mobile View Active**")
                         else:
-                            # Regular view
-                            pdf_viewer(tmp_path, width="100%", height=500)
+                            pdf_viewer(tmp_path_regular, width="100%", height=500)
+
+                    with preview_tab_nashville:
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            st.subheader("Nashville Number System Preview")
+                        with col2:
+                            full_screen_nashville = st.toggle(
+                                "📱 Mobile View",
+                                value=st.session_state.pdf_full_screen,
+                                help="Optimize for mobile viewing with larger text",
+                                key="mobile_view_toggle_nashville",
+                            )
+
+                        # Close preview button
+                        if st.button("✕ Close Preview", key="close_preview_nashville"):
+                            st.session_state.show_pdf_preview = False
+                            st.session_state.cached_pdf_bytes = None
+                            st.session_state.cached_pdf_bytes_nashville = None
+                            st.rerun()
+
+                        # Adjust PDF viewer based on toggle
+                        if full_screen_nashville:
+                            pdf_viewer(tmp_path_nashville, width="100%", height=800)
+                            st.success("🔍 **Mobile View Active**")
+                        else:
+                            pdf_viewer(tmp_path_nashville, width="100%", height=500)
 
                     with download_tab:
                         st.subheader("Download Options")
-                        st.download_button(
-                            label="Download PDF File",
-                            data=pdf_bytes,
-                            file_name=f"{selected_setlist['name'].replace(' ', '_')}.pdf",
-                            mime="application/pdf",
-                            use_container_width=True,
-                        )
 
-                        st.info("💡 **Mobile Tips:**")
-                        st.markdown(
-                            """
-                        - Enable **Mobile View** for larger text
-                        - Pinch to zoom in the PDF preview  
-                        - Download for offline viewing
-                        - Landscape mode may provide better viewing
-                        """
-                        )
+                        col_dl1, col_dl2 = st.columns(2)
 
-                    os.unlink(tmp_path)
+                        with col_dl1:
+                            st.write("**Standard Chords**")
+                            st.download_button(
+                                label="📄 Download Standard PDF",
+                                data=pdf_bytes,
+                                file_name=f"{selected_setlist['name'].replace(' ', '_')}.pdf",
+                                mime="application/pdf",
+                                use_container_width=True,
+                            )
+                        with col_dl2:
+                            st.write("**Nashville Number System**")
+                            st.download_button(
+                                label="🎵 Download Nashville PDF",
+                                data=pdf_bytes_nashville,
+                                file_name=f"{selected_setlist['name'].replace(' ', '_')}_nashville.pdf",
+                                mime="application/pdf",
+                                use_container_width=True,
+                            )
+
+                    # Clean up temporary files
+                    os.unlink(tmp_path_regular)
+                    os.unlink(tmp_path_nashville)
