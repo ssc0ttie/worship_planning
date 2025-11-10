@@ -1599,7 +1599,21 @@ elif page == "Manage Setlist":
         if not existing_setlists:
             st.info("No setlists available.")
         else:
-            setlist_options = {f"{s['name']}-{s['song']}": s for s in existing_setlists}
+
+            from datetime import datetime
+
+            # Sort by date descending (latest first)
+            sorted_setlists = sorted(
+                existing_setlists,
+                key=lambda s: datetime.strptime(
+                    s["service_date"], "%Y-%m-%d"
+                ),  # adjust format if needed
+                reverse=True,
+            )
+
+            setlist_options = {
+                f"{s['name']}- ({s['song']})": s for s in sorted_setlists
+            }
             selected_label = st.selectbox(
                 "Select a Setlist:", list(setlist_options.keys())
             )
