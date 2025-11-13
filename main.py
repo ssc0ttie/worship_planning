@@ -252,59 +252,6 @@ elif page == "Settings":
     st.write("Configure your transposition preferences here.")
     # Add settings options if needed
 
-# elif page == "Help":
-#     st.subheader("Help & Instructions")
-#     st.markdown(
-#         """
-#     ## How to use this app:
-#     ### **Manage Roster:**
-
-#     1. **Leader: Manage Schedule**
-#     - **Add New Service**:
-#     -- Service Name : Name of the Service
-#     -- Service Date : Date of Service
-#     - **Add Service Button**: Save Service
-
-#     2. **Member: Submit Availability**:
-#     - **Submit your availability**:
-#         - Select Your Name : Name of band member
-#         - List of Services: Select Date of Service
-#         - Availability: Select Availability
-#         - Select Instrument : Select Instrument / Role
-
-#         - **Submit Button**: Submit Availability
-
-#     - **Change Response Button :** Change to Not Available (change instrument not yet supported)
-
-#     ### **Manage Songs:**
-#     **This Page**:
-#     - Add Songs
-#     - See list of songs in the bank
-#     - allows users to view, edit and delete songs
-
-#     1. **Edit / Delete (Not Supported Yet) / View Songs**
-#     - **Edit**:
-#         - Title : Edit Song Title
-#         - Artist: Edit Artist
-#         - Default Key: Edit Key
-#         - Lyrics: Edit Lyrics and Chords
-#         - **Save Changes Button**: Save Song Edits
-
-#     2. **🎵Add Song**:
-#     - **Add a Song (Left Hand Side)**:
-#         - Enter Song Title : e.g., Amazing Grace
-#         - Enter Artist: e.g., John Newton
-#         - Enter Song Key: e.g., C, G, Am, etc.
-#         - Paste Song Here: Paste Song Lyrics
-#             - *Paste with Chords
-#             - *Works best when copying from Ultimate Guitar
-#             - *Make sure the lines aren't very long, ideally single column per line - this will affect exporting quality
-#         - **Add Song Button** : Add New Song
-
-#     """
-#     )
-
-
 elif page == "Help":
     st.subheader("📖 Help & Instructions")
     st.markdown(
@@ -1403,7 +1350,9 @@ elif page == "Manage Setlist":
             st.subheader("Create New Setlist")
 
             # Service selection
-            sorted_services = sorted(services, key=lambda x: x["service_date"])
+            sorted_services = sorted(
+                services, key=lambda x: x["service_date"], reverse=True
+            )
 
             service_options = {
                 f"{s['service_name']} - {s['service_date']}": s for s in sorted_services
@@ -1434,9 +1383,14 @@ elif page == "Manage Setlist":
                     st.session_state.current_setlist = []
 
                 # Song selection
+
                 song_options = {f"{s['title']} by {s['artist']}": s for s in songs}
+
+                sorted_services = sorted(services, key=lambda x: x["service_date"])
+
+                # sorter_song_options = sorted(song_option)
                 selected_song = st.selectbox(
-                    "Select Song:", options=list(song_options.keys())
+                    "Select Song:", options=sorted(list(song_options.keys()))
                 )
                 song_data = song_options[selected_song] if selected_song else None
 
@@ -1486,6 +1440,7 @@ elif page == "Manage Setlist":
                     # setlist_manager.create_setlist(setlist_item)
                     st.session_state.current_setlist.append(setlist_item)
                     st.success(f"Added '{song_data['title']}' to setlist!")
+
         with col2:
             st.subheader("Current Setlist")
 
@@ -1595,6 +1550,9 @@ elif page == "Manage Setlist":
 
     with setlisttab2:
         st.subheader("Existing Setlists")
+
+        if st.button("🔄Refresh Setlists"):
+            st.rerun()
 
         if not existing_setlists:
             st.info("No setlists available.")
